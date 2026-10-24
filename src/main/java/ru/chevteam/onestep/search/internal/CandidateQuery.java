@@ -19,4 +19,10 @@ record CandidateQuery(
         UUID landmarkId,
         Integer radiusMeters,
         int limit) {
+
+    /** Тот же запрос в другом направлении. Достопримечательность привязана к городу, поэтому снимается. */
+    CandidateQuery withDestination(String newCountry, String newCity) {
+        return new CandidateQuery(newCountry, newCity, minStars, adults, children, mealPlan, month,
+                null, null, limit);
+    }
 }

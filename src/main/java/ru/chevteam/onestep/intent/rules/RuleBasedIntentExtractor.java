@@ -70,7 +70,7 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
     private static final Pattern DAYS = p("\\b" + NUMBER + "\\s*(?:дн\\w*|день)\\b");
     private static final Pattern WEEKS = p("\\b(?:" + NUMBER + "\\s*)?недел\\w*");
 
-    private static final Pattern PROXIMITY_TO = p("\\bдо\\s+(\\p{L}[\\p{L}-]{2,})\\s+пешком(?:\\s+минут\\w*)?(?:\\s+за)?(?:\\s+(\\d{1,3}))?(?:\\s*мин\\w*)?");
+    private static final Pattern PROXIMITY_TO = p("\\bдо\\s+((?:\\p{L}[\\p{L}-]*\\s+){0,2}\\p{L}[\\p{L}-]{2,})\\s+пешком(?:\\s+минут\\w*)?(?:\\s+за)?(?:\\s+(\\d{1,3}))?(?:\\s*мин\\w*)?");
     private static final Pattern PROXIMITY_MINUTES_FIRST = p("\\b(\\d{1,3})\\s*мин\\w*\\s+(?:пешком|ходьбы)\\s+(?:до|от)\\s+(\\p{L}[\\p{L}-]{2,})");
     private static final Pattern PROXIMITY_NEAR = p("\\b(?:рядом с|возле|около|недалеко от)\\s+(\\p{L}[\\p{L}-]{2,})");
     private static final Pattern SEA_OR_BEACH = p("^(?:мор|пляж|берег)\\w*");
@@ -147,6 +147,9 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
         Destination destination = ctx.track(IntentField.DESTINATION, DestinationDictionary.find(text.value())
                 .map(match -> {
                     text.consume(match.start(), match.end());
+                    if (match.hasExtra()) {
+                        text.consume(match.extraStart(), match.extraEnd());
+                    }
                     return match.destination();
                 })
                 .orElse(null));

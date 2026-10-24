@@ -27,3 +27,23 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: true
+  - changeSet:
+      id: 004-seed-more-destinations
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/004-seed-more-destinations.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 005-seed-asia
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/005-seed-asia.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true

@@ -30,7 +30,7 @@ class SearchCacheConfig {
         return builder -> builder.withCacheConfiguration(CACHE, RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(10))
                 .disableCachingNullValues()
-                .prefixCacheNameWith("onestep:")
+                .prefixCacheNameWith("onestep:v2:")
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer)));
     }
 }

@@ -163,6 +163,66 @@ class RuleBasedIntentExtractorTest {
         }
     }
 
+    @ParameterizedTest(name = "«{0}» → {1} / {2}")
+    @CsvSource(delimiter = '|', nullValues = "-", value = {
+            "Хочу в Тайланд на 7 дней       | Таиланд  | -",
+            "в Таиланд, на Пхукет           | Таиланд  | Пхукет",
+            "Дубай в декабре                | ОАЭ      | Дубай",
+            "Египет, всё включено           | Египет   | -",
+            "Хургада с детьми               | Египет   | Хургада",
+            "на Мальдивы вдвоём             | Мальдивы | -",
+            "Грузия, Батуми, море           | Грузия   | Батуми",
+            "Китай, хочу в Пекин            | Китай    | Пекин",
+            "на Хайнань зимой               | Китай    | Санья",
+            "Япония в апреле, сакура        | Япония   | -",
+            "Токио на неделю                | Япония   | Токио",
+            "в Южную Корею                  | Южная Корея | -",
+            "Сеул и Пусан                   | Южная Корея | Сеул",
+            "Камбоджа, Ангкор               | Камбоджа | -",
+            "в Сием-Рип к храмам            | Камбоджа | Сием-Рип",
+            "Лаос, Луангпрабанг             | Лаос     | Луангпрабанг",
+            "Сингапур с детьми              | Сингапур | Сингапур",
+            "Малайзия, Лангкави             | Малайзия | Лангкави",
+            "Вьетнам, Фукуок                | Вьетнам  | Фукуок",
+            "Ханой и Халонг                 | Вьетнам  | Ханой",
+            "на Бали в июле                 | Индонезия | Бали",
+            "Индия, Гоа                     | Индия    | Гоа",
+            "Боракай, Филиппины             | Филиппины | Боракай",
+            "Стамбул на выходные            | Турция   | Стамбул",
+    })
+    void recognizesPopularOutboundDestinations(String query, String country, String city) {
+        assertThat(extract(query).destination()).isEqualTo(new Destination(country, city));
+    }
+
+    @Test
+    void countryAndCityTogetherKeepTextBetweenThem() {
+        SearchIntent intent = extract("Таиланд в мае, Пхукет");
+        assertThat(intent.destination()).isEqualTo(Destination.city("Таиланд", "Пхукет"));
+        assertThat(intent.stay().month()).isEqualTo(YearMonth.of(2027, 5));
+    }
+
+    @Test
+    void multiWordLandmark() {
+        SearchIntent intent = extract("Сингапур, до Марина Бэй Сэндс пешком 10 минут");
+        assertThat(intent.proximity()).containsExactly(new ProximityConstraint("марина бэй сэндс", 10));
+    }
+
+    @Test
+    void cuisineAdjectiveIsNotADestination() {
+        assertThat(extract("Сочи, рядом китайский ресторан").destination()).isEqualTo(Destination.city("Россия", "Сочи"));
+    }
+
+    @Test
+    void thailandQueryFromUser() {
+        SearchIntent intent = extract("Хочу в Тайланд на 7 дней, двое взрослых, до 100 тысяч. "
+                + "Лечу из Москвы, можно с пересадкой но лучше прямой.");
+        assertThat(intent.destination()).isEqualTo(Destination.country("Таиланд"));
+        assertThat(intent.stay().nights()).isEqualTo(6);
+        assertThat(intent.guests().adults()).isEqualTo(2);
+        assertThat(intent.budget()).isEqualTo(Budget.total(100_000));
+        assertThat(intent.transport().originCity()).isEqualTo("Москва");
+    }
+
     @Test
     void unknownDestinationAsksWhereToGo() {
         ExtractionResult result = extractor.extract("хочу тёплое море и горы");

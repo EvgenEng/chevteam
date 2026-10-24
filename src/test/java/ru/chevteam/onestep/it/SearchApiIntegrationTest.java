@@ -56,6 +56,50 @@ class SearchApiIntegrationTest {
     }
 
     @Test
+    void thailandFindsPhuket() throws Exception {
+        JsonNode body = search("Хочу в Тайланд на 7 дней, двое взрослых, до 100 тысяч. Лечу из Москвы, лучше прямой.");
+
+        assertThat(body.get("notice").isNull()).isTrue();
+        assertThat(body.at("/hotels/0/city").asText()).isIn("Пхукет", "Паттайя");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "Япония в апреле на 5 ночей, двое взрослых                      | Япония",
+            "Сингапур, 3 ночи, до Марина Бэй Сэндс пешком 10 минут          | Сингапур",
+            "Хайнань в январе, всё включено, аквапарк, двое взрослых и ребёнок 6 лет | Китай",
+            "Камбоджа, Сием-Рип, 3 ночи, тихо                               | Камбоджа",
+    })
+    void asianDestinations(String query, String country) throws Exception {
+        JsonNode body = search(query);
+        assertThat(body.get("notice").isNull()).as(body.toString()).isTrue();
+        assertThat(body.at("/understood/intent/destination/country").asText()).isEqualTo(country);
+        assertThat(body.get("hotels")).isNotEmpty();
+    }
+
+    @Test
+    void multiWordLandmarkIsResolved() throws Exception {
+        JsonNode body = search("Сингапур, 3 ночи, до Марина Бэй Сэндс пешком 10 минут");
+        assertThat(body.at("/understood/summary").toString()).contains("Марина Бэй Сэндс");
+        assertThat(body.at("/hotels/0/name").asText()).isEqualTo("Marina Bay Vista");
+    }
+
+    @Test
+    void cityWithoutHotelsFallsBackToCountry() throws Exception {
+        JsonNode body = search("Гуанчжоу на 4 ночи, двое взрослых");
+        assertThat(body.get("notice").asText()).contains("Гуанчжоу").contains("Китай");
+        assertThat(body.at("/hotels/0/city").asText()).isIn("Пекин", "Шанхай", "Санья");
+    }
+
+    @Test
+    void destinationWithoutHotelsIsHonestAndOffersAlternatives() throws Exception {
+        JsonNode body = search("На Мальдивы вдвоём на неделю, до 300 тысяч");
+
+        assertThat(body.get("notice").asText()).contains("Мальдивы");
+        assertThat(body.get("hotels")).isNotEmpty();
+    }
+
+    @Test
     void landmarkIsResolvedAndNearbyPlacesReturned() throws Exception {
         JsonNode body = search("Питер, 2 ночи, до Эрмитажа пешком 15 минут");
 

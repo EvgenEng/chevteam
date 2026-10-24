@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import ru.chevteam.onestep.intent.Destination;
 import ru.chevteam.onestep.intent.ExtractionResult;
 import ru.chevteam.onestep.intent.IntentExtractor;
 import ru.chevteam.onestep.intent.ProximityConstraint;
@@ -75,7 +76,29 @@ class DefaultHotelSearch implements HotelSearch {
                 CANDIDATE_LIMIT);
 
         List<HotelCandidate> found = candidates.find(candidateQuery);
-        MatchScorer.LandmarkRef landmarkRef = landmark
+        String notice = null;
+        boolean relaxed = false;
+        if (found.isEmpty() && intent.destination() != null) {
+            Destination wanted = intent.destination();
+            if (wanted.city() != null) {
+                found = candidates.find(candidateQuery.withDestination(wanted.country(), null));
+                if (!found.isEmpty()) {
+                    relaxed = true;
+                    notice = "В демо-каталоге нет отелей в городе " + wanted.city()
+                            + " — показываем другие курорты: " + wanted.country() + ".";
+                }
+            }
+            if (found.isEmpty()) {
+                found = candidates.find(candidateQuery.withDestination(null, null));
+                relaxed = true;
+                notice = "В демо-каталоге пока нет отелей в направлении «" + wanted.displayName()
+                        + "». Ниже — лучшие варианты по остальным вашим условиям в других странах.";
+            }
+        } else if (intent.destination() == null) {
+            notice = "Направление не указано — подобрали лучшие варианты по остальным условиям во всех странах.";
+        }
+
+        MatchScorer.LandmarkRef landmarkRef = relaxed ? null : landmark
                 .map(l -> new MatchScorer.LandmarkRef(l.name(), proximity.maxWalkMinutes()))
                 .orElse(null);
         BigDecimal budgetCeiling = intent.budget() == null ? null
@@ -100,7 +123,7 @@ class DefaultHotelSearch implements HotelSearch {
         SearchResponse.Understood understood = new SearchResponse.Understood(intent, extraction.source(),
                 IntentSummary.of(intent, landmark.map(ResolvedLandmark::name).orElse(null)),
                 assumptions, clarifications);
-        return new SearchResponse(understood, ranked, found.size());
+        return new SearchResponse(understood, ranked, found.size(), notice);
     }
 
     private Optional<ResolvedLandmark> resolveLandmark(SearchIntent intent, List<String> assumptions) {
