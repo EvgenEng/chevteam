@@ -56,11 +56,14 @@ class SearchApiIntegrationTest {
     }
 
     @Test
-    void thailandFindsPhuket() throws Exception {
+    void thailandStaysInThailand() throws Exception {
         JsonNode body = search("Хочу в Тайланд на 7 дней, двое взрослых, до 100 тысяч. Лечу из Москвы, лучше прямой.");
 
-        assertThat(body.get("notice").isNull()).isTrue();
-        assertThat(body.at("/hotels/0/city").asText()).isIn("Пхукет", "Паттайя");
+        assertThat(body.get("notice").isNull()).as(body.toString()).isTrue();
+        assertThat(body.at("/understood/intent/destination/country").asText()).isEqualTo("Таиланд");
+        assertThat(body.get("hotels")).isNotEmpty()
+                .allSatisfy(h -> assertThat(h.get("city").asText())
+                        .isIn("Пхукет", "Паттайя", "Самуи", "Бангкок", "Краби"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -92,11 +95,11 @@ class SearchApiIntegrationTest {
     }
 
     @Test
-    void destinationWithoutHotelsIsHonestAndOffersAlternatives() throws Exception {
+    void maldivesFoundWithoutFallback() throws Exception {
         JsonNode body = search("На Мальдивы вдвоём на неделю, до 300 тысяч");
 
-        assertThat(body.get("notice").asText()).contains("Мальдивы");
-        assertThat(body.get("hotels")).isNotEmpty();
+        assertThat(body.get("notice").isNull()).as(body.toString()).isTrue();
+        assertThat(body.at("/hotels/0/city").asText()).isEqualTo("Северный Мале атолл");
     }
 
     @Test
