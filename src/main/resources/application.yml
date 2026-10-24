@@ -5,7 +5,7 @@ spring:
     virtual:
       enabled: true
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/onestep}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/onestep}
     username: ${DB_USER:onestep}
     password: ${DB_PASSWORD:onestep}
     hikari:

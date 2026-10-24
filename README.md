@@ -69,7 +69,7 @@ docker compose --profile app up --build
 # → http://localhost:8080  (UI)   http://localhost:8080/swagger-ui.html  (API)
 
 # или: инфраструктура в Docker, приложение из IDE
-docker compose up -d postgres redis
+docker compose up -d postgres redis   # PostgreSQL на localhost:5433
 mvn spring-boot:run
 ```
 
