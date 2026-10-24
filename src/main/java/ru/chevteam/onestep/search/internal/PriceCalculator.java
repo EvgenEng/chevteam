@@ -1,17 +1,16 @@
 package ru.chevteam.onestep.search.internal;
 
+import ru.chevteam.onestep.catalog.Pricing;
 import ru.chevteam.onestep.search.PriceQuote;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 
 /**
- * Цена за проживание: базовый тариф × сезонный коэффициент, округление до 10 ₽ за ночь.
+ * Быстрая оценка цены для выдачи: правило ночи — {@link Pricing}, коэффициент — месяца заезда.
+ * Точная цена по каждой ночи считается при бронировании ({@code HotelCatalog.quote}).
  * Деньги — только {@link BigDecimal}.
  */
 final class PriceCalculator {
-
-    private static final BigDecimal TEN = BigDecimal.TEN;
 
     private PriceCalculator() {
     }
@@ -20,10 +19,7 @@ final class PriceCalculator {
         if (nights < 1) {
             throw new IllegalArgumentException("nights must be positive: " + nights);
         }
-        BigDecimal coefficient = seasonCoefficient == null ? BigDecimal.ONE : seasonCoefficient;
-        BigDecimal perNight = basePricePerNight.multiply(coefficient)
-                .divide(TEN, 0, RoundingMode.HALF_UP)
-                .multiply(TEN);
+        BigDecimal perNight = Pricing.nightPrice(basePricePerNight, seasonCoefficient);
         BigDecimal total = perNight.multiply(BigDecimal.valueOf(nights));
         return new PriceQuote(total, perNight, nights, "RUB");
     }

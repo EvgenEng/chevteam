@@ -18,3 +18,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: true
+  - changeSet:
+      id: 003-booking
+      author: chevteam
+      changes:
+        - sqlFile:
+            path: sql/003-booking.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true

@@ -28,6 +28,9 @@
 | Объяснимый ранжир | Каждое пожелание имеет вес; карточка показывает ✓ / ~ / ✕ причины и % совпадения |
 | Цена поездки | Тариф × сезонный коэффициент × ночи, деньги — только `BigDecimal` |
 | Прозрачность | Ответ содержит «как мы поняли», допущения («считаем 2 взрослых») и уточняющие вопросы |
+| Бронирование | Удержание номера на 15 минут → тестовая оплата → подтверждение. Без овербукинга даже при гонке за последний номер |
+| Деньги без дублей | `Idempotency-Key` на каждом изменяющем запросе: повтор или двойной клик не создают вторую бронь и не списывают дважды |
+| События | Transactional outbox (Spring Modulith) → Kafka: событие брони не теряется, даже если брокер лежит |
 
 ## Архитектура
 
@@ -42,22 +45,28 @@ flowchart LR
     S -->|JdbcClient + PostGIS| DB[(PostgreSQL<br/>PostGIS)]
     S <-->|кэш ответов| RD[(Redis)]
     UI -->|GET /api/v1/hotels/id| C[catalog] --> DB
+    UI -->|POST /api/v1/bookings| B[booking]
+    B -->|цена тарифа| C
+    B -->|остатки, брони, outbox| DB
+    B -. outbox .-> K[(Kafka<br/>onestep.bookings)]
 ```
 
 | Модуль | Ответственность |
 |---|---|
 | `intent` | Текст → `SearchIntent`. Домен без Spring (проверяет ArchUnit), адаптеры LLM — порт `LlmClient` |
 | `search` | Кандидаты одним SQL (LATERAL + PostGIS), скоринг и цена — чистые функции |
-| `catalog` | Карточка отеля и тарифы |
+| `catalog` | Карточка отеля, тарифы, авторитетная цена на даты |
+| `booking` | Агрегат брони со state machine, остатки, идемпотентность, события в outbox |
 | `shared` | RFC 7807 ошибки, correlation id, кэш с graceful degradation |
 
 Решения: [ADR-0001 модульный монолит](docs/adr/0001-modular-monolith.md) ·
 [ADR-0002 гибрид правил и LLM](docs/adr/0002-hybrid-intent-extraction.md) ·
-[ADR-0003 PostGIS и read-модель на JdbcClient](docs/adr/0003-postgis-read-model.md)
+[ADR-0003 PostGIS и read-модель на JdbcClient](docs/adr/0003-postgis-read-model.md) ·
+[ADR-0004 консистентность бронирования](docs/adr/0004-booking-consistency.md)
 
 ## Стек
 
-Java 21 (records, pattern matching, virtual threads) · Spring Boot 3.4 · Spring Modulith · PostgreSQL 16 + PostGIS · Liquibase · Redis · Resilience4j · Micrometer/Prometheus · springdoc OpenAPI · JUnit 5, AssertJ, Testcontainers, ArchUnit · Docker, GitHub Actions
+Java 21 (records, pattern matching, virtual threads) · Spring Boot 3.4 · Spring Modulith · PostgreSQL 16 + PostGIS · Liquibase · Redis · Kafka · Spring Modulith Events · Resilience4j · Micrometer/Prometheus · springdoc OpenAPI · JUnit 5, AssertJ, Testcontainers, ArchUnit · Docker, GitHub Actions
 
 ## Запуск
 
@@ -69,8 +78,11 @@ docker compose --profile app up --build
 # → http://localhost:8080  (UI)   http://localhost:8080/swagger-ui.html  (API)
 
 # или: инфраструктура в Docker, приложение из IDE
-docker compose up -d postgres redis   # PostgreSQL на localhost:5433
+docker compose up -d postgres redis kafka   # PostgreSQL на localhost:5433
 mvn spring-boot:run
+
+# посмотреть события броней в Kafka: http://localhost:8090
+docker compose --profile tools up -d kafka-ui
 ```
 
 ### Подключение LLM
@@ -96,6 +108,16 @@ curl -s localhost:8080/api/v1/search -H 'Content-Type: application/json' \
   -d '{"query":"Сочи на 7 дней в сентябре, 4 звезды, первая линия, с завтраком, до 50 тысяч. Один еду."}'
 ```
 
+Бронирование (ключ идемпотентности — любой уникальный UUID на попытку):
+
+```bash
+curl -s localhost:8080/api/v1/bookings -H 'Content-Type: application/json' -H 'Idempotency-Key: 6f1c2b7e-demo-0001' \
+  -d '{"rateId":"<rateId из выдачи>","checkIn":"2027-05-10","nights":9,"adults":2,"childrenAges":[7],
+       "guestName":"Евгений","guestEmail":"guest@example.com"}'
+curl -s localhost:8080/api/v1/bookings/<id>/payment -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: 6f1c2b7e-demo-0002' -d '{"method":"TEST_CARD_SUCCESS"}'
+```
+
 Ошибки — `application/problem+json` (RFC 7807). Каждый ответ содержит `X-Correlation-Id`.
 Метрики: `/actuator/prometheus` (`onestep_search_*`, `onestep_intent_extraction_total{source=ai|rules}`), состояние модулей: `/actuator/modulith`.
 
@@ -108,6 +130,7 @@ mvn verify     # unit + архитектурные + интеграционны�
 - **Unit**: разбор запросов (включая три демо-сценария), слияние с LLM, circuit breaker, скоринг, цены.
 - **Архитектура**: `ModularityTests` (Spring Modulith) и `ArchitectureRulesTest` (ArchUnit: домен без Spring, контроллеры только в `web`).
 - **Интеграция**: `SearchApiIntegrationTest` — настоящий SQL на PostGIS, демо-запросы дают ожидаемый топ-1.
+  `BookingFlowIntegrationTest` — полный путь брони с событием в Kafka, идемпотентность, 10 параллельных броней на 3 номера.
 
 ## Демо-данные
 
@@ -116,7 +139,7 @@ mvn verify     # unit + архитектурные + интеграционны�
 
 ## Дальше
 
-- [ ] Бронирование: hold номера → оплата → подтверждение (saga, idempotency key, transactional outbox → Kafka)
+- [x] Бронирование: удержание → оплата → подтверждение, idempotency key, transactional outbox → Kafka
 - [ ] Управление поездкой: таймлайн и уведомления в реальном времени (WebSocket)
 - [ ] Spring Security + JWT, роли гость/пользователь/админ
 - [ ] Персональная выжимка отзывов под профиль путешественника

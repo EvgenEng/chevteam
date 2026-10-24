@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Clock;
@@ -13,7 +14,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 
 /**
- * Реальные PostGIS и Redis в контейнерах — интеграционные тесты проверяют настоящий SQL, а не моки.
+ * Реальные PostGIS, Redis и Kafka в контейнерах — интеграционные тесты проверяют настоящий SQL, а не моки.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
@@ -29,6 +30,12 @@ public class TestcontainersConfiguration {
     @ServiceConnection(name = "redis")
     GenericContainer<?> redis() {
         return new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);
+    }
+
+    @Bean
+    @ServiceConnection
+    KafkaContainer kafka() {
+        return new KafkaContainer(DockerImageName.parse("apache/kafka:3.8.1"));
     }
 
     /** Фиксированная «сегодняшняя» дата — чтобы «в мае» всегда означало май 2027. */

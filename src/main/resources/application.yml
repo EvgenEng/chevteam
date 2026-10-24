@@ -28,8 +28,33 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    admin:
+      operation-timeout: 5s
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        # Kafka недоступна — не держим HTTP-поток дольше пары секунд: событие уже в outbox и уйдёт позже
+        max.block.ms: 3000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: true
+      republish-outstanding-events-on-restart: true
 
 app:
+  booking:
+    hold-ttl: 15m
+    max-nights: 30
+    expiry-check-interval: 30s
+    outbox-retry-interval: 1m
   search:
     max-results: 10
     budget-tolerance: 0.30

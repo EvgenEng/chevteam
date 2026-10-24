@@ -36,7 +36,7 @@ class CandidateRepository {
                    ST_Y(h.location::geometry) AS lat, ST_X(h.location::geometry) AS lon,
                    h.beach_line, h.distance_to_beach_m, h.distance_to_center_m, h.airport_transfer_min,
                    h.quiet_score, h.clean_score, h.wifi_score, h.family_score, h.short_description,
-                   r.room_name, r.meal_plan, r.price_per_night, r.refundable,
+                   r.id AS rate_id, r.room_name, r.meal_plan, r.price_per_night, r.refundable,
                    COALESCE(sc.coefficient, 1.0) AS season_coefficient,
                    ARRAY(SELECT a.amenity FROM hotel_amenity a WHERE a.hotel_id = h.id ORDER BY a.amenity) AS amenities,
                    ARRAY(SELECT l.name || '|' || ROUND(ST_Distance(h.location, l.location))::int
@@ -47,7 +47,7 @@ class CandidateRepository {
                    %s AS landmark_distance_m
               FROM hotel h
               JOIN LATERAL (
-                    SELECT rr.room_name, rr.meal_plan, rr.price_per_night, rr.refundable
+                    SELECT rr.id, rr.room_name, rr.meal_plan, rr.price_per_night, rr.refundable
                       FROM room_rate rr
                      WHERE rr.hotel_id = h.id
                        AND rr.max_adults >= :adults
@@ -146,6 +146,7 @@ class CandidateRepository {
             rs.getString("short_description"),
             amenities(rs),
             new HotelCandidate.Rate(
+                    rs.getObject("rate_id", UUID.class),
                     rs.getString("room_name"),
                     MealPlan.valueOf(rs.getString("meal_plan")),
                     rs.getBigDecimal("price_per_night"),

@@ -122,6 +122,33 @@
   .rates th, .rates td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
   .rates th { color: var(--muted); font-weight: 500; }
 
+
+  /* Бронирование */
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  button.book { font: 600 14px/1 "Onest", sans-serif; background: var(--ink); color: #fff; border: 0; border-radius: 999px; padding: 11px 18px; cursor: pointer; }
+  button.book:hover { background: var(--sea); }
+  dialog.booking { border: 2px solid var(--ink); border-radius: var(--radius-lg); padding: 0; width: min(560px, calc(100vw - 32px)); color: var(--ink); box-shadow: 8px 8px 0 var(--ink); }
+  dialog.booking::backdrop { background: rgba(18, 34, 61, .45); }
+  .dlg { padding: 22px; display: grid; gap: 14px; }
+  .dlg h2 { font: 700 20px/1.2 "Unbounded", sans-serif; margin: 0; }
+  .dlg .sub { color: var(--muted); margin: -8px 0 0; font-size: 14px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+  .field { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+  .field input, .field select { font: 500 16px/1.3 "Onest", sans-serif; color: var(--ink); border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; background: #fff; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--sea); }
+  .dlg-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 14px; }
+  .total strong { font: 700 22px/1 "Unbounded", sans-serif; }
+  .total small { display: block; color: var(--muted); margin-top: 4px; }
+  .timer { font: 700 34px/1 "Unbounded", sans-serif; letter-spacing: .02em; }
+  .timer.low { color: var(--miss); }
+  .ref { font: 700 28px/1 "Unbounded", sans-serif; letter-spacing: .06em; }
+  .alert { border-radius: var(--radius-sm); padding: 10px 12px; font-size: 15px; }
+  .alert.err { background: #FBEAE8; color: var(--miss); }
+  .alert.ok { background: #E6F3EC; color: var(--ok); }
+  .alert.info { background: #EEF4FA; color: var(--ink); }
+  .linkish { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
+
   .state { padding: 28px; background: var(--surface); border-radius: var(--radius-lg); border: 1px dashed var(--muted); }
   .skeleton { height: 180px; border-radius: var(--radius-lg); background: linear-gradient(90deg, #e7edf5, #f6f8fb, #e7edf5); background-size: 200% 100%; animation: shimmer 1.2s infinite linear; }
   @keyframes shimmer { to { background-position: -200% 0; } }
@@ -160,6 +187,8 @@
     <div class="list" id="list"></div>
     <div class="map" id="map" role="img" aria-label="Отели на карте"></div>
   </section>
+
+  <dialog class="booking" id="booking" aria-labelledby="bk-title"></dialog>
 
   <footer>Демо для хакатона Островка, команда ChevTeam. Отели в каталоге вымышленные, районы и достопримечательности — настоящие.</footer>
 </div>
@@ -226,6 +255,7 @@
     }
     list.innerHTML = data.hotels.map((h, i) => card(h, i)).join('');
     list.querySelectorAll('[data-rates]').forEach(btn => btn.addEventListener('click', () => toggleRates(btn)));
+    list.querySelectorAll('[data-book]').forEach(btn => btn.addEventListener('click', () => openBooking(data.hotels[+btn.dataset.book], u.intent)));
     drawMap(data.hotels);
   }
 
@@ -249,7 +279,10 @@
           <div class="foot">
             <div class="price"><strong>${rub(h.price.total)}</strong>
               <small>за ${h.price.nights} ${nightsWord(h.price.nights)}, ${rub(h.price.perNight)} в сутки · ${esc(h.roomName)}, ${esc(MEALS[h.mealPlan] || h.mealPlan)}</small></div>
-            <button class="ghost" type="button" data-rates="${h.hotelId}" aria-expanded="false">Все тарифы</button>
+            <div class="actions">
+              <button class="ghost" type="button" data-rates="${h.hotelId}" aria-expanded="false">Все тарифы</button>
+              <button class="book" type="button" data-book="${i}">Забронировать</button>
+            </div>
           </div>
         </div>
       </article>`;
@@ -274,6 +307,193 @@
       article.insertAdjacentHTML('beforeend', `<p class="rates" role="alert">Не удалось загрузить тарифы: ${esc(err.message)}</p>`);
     } finally { btn.disabled = false; }
   }
+
+
+  // ---------------------------------------------------------------- бронирование
+  const dlg = document.getElementById('booking');
+  let timerId;
+  const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+  const iso = d => d.toISOString().slice(0, 10);
+  const plusDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+
+  function defaultCheckIn(intent) {
+    const stay = intent && intent.stay || {};
+    const tomorrow = plusDays(new Date(), 1);
+    if (stay.checkIn) return stay.checkIn;
+    if (stay.month) {
+      const first = new Date(stay.month + '-01T00:00:00');
+      return iso(first > tomorrow ? first : tomorrow);
+    }
+    return iso(plusDays(new Date(), 14));
+  }
+
+  async function openBooking(h, intent) {
+    clearInterval(timerId);
+    const guests = (intent && intent.guests) || { adults: 2, childrenAges: [] };
+    dlg.innerHTML = `<div class="dlg"><h2 id="bk-title">${esc(h.name)}</h2><p class="sub">Загружаем тарифы…</p></div>`;
+    dlg.showModal();
+    let rates = [];
+    try {
+      const res = await fetch('/api/v1/hotels/' + h.hotelId);
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail);
+      rates = d.rates;
+    } catch (e) {
+      dlg.innerHTML = `<div class="dlg"><h2 id="bk-title">${esc(h.name)}</h2><div class="alert err" role="alert">Не удалось загрузить тарифы: ${esc(e.message)}</div>
+        <div class="dlg-foot"><span></span><button class="ghost" type="button" data-close>Закрыть</button></div></div>`;
+      dlg.querySelector('[data-close]').onclick = () => dlg.close();
+      return;
+    }
+    let key = newKey();
+    dlg.innerHTML = `
+      <form class="dlg" id="bk-form" novalidate>
+        <h2 id="bk-title">${esc(h.name)}</h2>
+        <p class="sub">${esc(h.city)}${h.district ? ', ' + esc(h.district) : ''} · номер удержим за вами на 15 минут</p>
+        <label class="field">Номер и питание
+          <select name="rateId">${rates.map(r => `<option value="${r.id}" ${r.id === h.rateId ? 'selected' : ''}>${esc(r.roomName)} — ${esc(MEALS[r.mealPlan] || r.mealPlan)} (до ${r.maxAdults} взр.${r.maxChildren ? ' + ' + r.maxChildren + ' дет.' : ''})${r.refundable ? '' : ', невозвратный'}</option>`).join('')}</select>
+        </label>
+        <div class="grid2">
+          <label class="field">Заезд <input type="date" name="checkIn" required min="${iso(new Date())}" value="${defaultCheckIn(intent)}"></label>
+          <label class="field">Ночей <input type="number" name="nights" required min="1" max="30" value="${h.price.nights}"></label>
+          <label class="field">Взрослых <input type="number" name="adults" required min="1" max="10" value="${guests.adults}"></label>
+          <label class="field">Возраст детей <input type="text" name="children" inputmode="numeric" placeholder="например: 7, 10" value="${(guests.childrenAges || []).join(', ')}"></label>
+          <label class="field">Имя гостя <input type="text" name="guestName" required maxlength="200" autocomplete="name"></label>
+          <label class="field">Email <input type="email" name="guestEmail" required maxlength="200" autocomplete="email"></label>
+        </div>
+        <div id="bk-msg" aria-live="polite"></div>
+        <div class="dlg-foot">
+          <div class="total"><strong>${rub(h.price.total)}</strong><small>ориентир по выдаче, точная цена — после удержания</small></div>
+          <div class="actions"><button class="ghost" type="button" data-close>Отмена</button><button class="book" type="submit">Удержать номер</button></div>
+        </div>
+      </form>`;
+    const form = dlg.querySelector('#bk-form');
+    form.addEventListener('input', () => { key = newKey(); });
+    dlg.querySelector('[data-close]').onclick = () => dlg.close();
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const msg = form.querySelector('#bk-msg');
+      if (!form.reportValidity()) return;
+      const f = new FormData(form);
+      const children = String(f.get('children') || '').split(/[,\s]+/).filter(Boolean).map(Number);
+      if (children.some(a => !Number.isInteger(a) || a < 0 || a > 17)) {
+        msg.innerHTML = `<div class="alert err">Возраст детей — числа от 0 до 17 через запятую</div>`; return;
+      }
+      const btn = form.querySelector('button[type=submit]');
+      btn.disabled = true; btn.textContent = 'Удерживаем…';
+      try {
+        const res = await fetch('/api/v1/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key },
+          body: JSON.stringify({ rateId: f.get('rateId'), checkIn: f.get('checkIn'), nights: +f.get('nights'),
+            adults: +f.get('adults'), childrenAges: children, guestName: f.get('guestName'), guestEmail: f.get('guestEmail') })
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.detail || 'Ошибка ' + res.status);
+        showHeld(body);
+      } catch (err) {
+        msg.innerHTML = `<div class="alert err" role="alert">${esc(err.message)}</div>`;
+        btn.disabled = false; btn.textContent = 'Удержать номер';
+      }
+    });
+  }
+
+  function showHeld(b, notice) {
+    dlg.innerHTML = `
+      <div class="dlg">
+        <h2 id="bk-title">Номер за вами</h2>
+        <p class="sub">${esc(b.hotelName)} · ${esc(b.roomName)}, ${esc(MEALS[b.mealPlan] || b.mealPlan)}</p>
+        <div class="grid2">
+          <div><div class="timer" id="bk-timer">15:00</div><small class="hint">осталось на оплату</small></div>
+          <div class="total"><strong>${rub(b.total)}</strong><small>${b.nights} ${nightsWord(b.nights)}, ${fmtDate(b.checkIn)} — ${fmtDate(b.checkOut)}</small></div>
+        </div>
+        <div id="bk-msg" aria-live="polite">${notice || ''}</div>
+        <p class="hint">Демо-оплата: никакие реальные карты и деньги не используются.</p>
+        <div class="dlg-foot">
+          <button class="linkish" type="button" data-cancel>Отменить удержание</button>
+          <div class="actions">
+            <button class="ghost" type="button" data-pay="TEST_CARD_DECLINE">Тест: отказ банка</button>
+            <button class="book" type="button" data-pay="TEST_CARD_SUCCESS">Оплатить тестовой картой</button>
+          </div>
+        </div>
+      </div>`;
+    startTimer(b.holdExpiresAt);
+    dlg.querySelectorAll('[data-pay]').forEach(btn => btn.onclick = () => pay(b, btn.dataset.pay));
+    dlg.querySelector('[data-cancel]').onclick = () => cancelBooking(b);
+  }
+
+  async function pay(b, method) {
+    const msg = dlg.querySelector('#bk-msg');
+    dlg.querySelectorAll('[data-pay]').forEach(x => x.disabled = true);
+    msg.innerHTML = `<div class="alert info">Проводим платёж…</div>`;
+    try {
+      const res = await fetch(`/api/v1/bookings/${b.id}/payment`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Idempotency-Key': newKey() },
+        body: JSON.stringify({ method })
+      });
+      const body = await res.json();
+      if (res.status === 402) { showHeld(body.booking, `<div class="alert err" role="alert">${esc(body.detail)}</div>`); return; }
+      if (!res.ok) throw new Error(body.detail || 'Ошибка ' + res.status);
+      showConfirmed(body);
+    } catch (err) {
+      msg.innerHTML = `<div class="alert err" role="alert">${esc(err.message)}</div>`;
+      dlg.querySelectorAll('[data-pay]').forEach(x => x.disabled = false);
+    }
+  }
+
+  function showConfirmed(b) {
+    clearInterval(timerId);
+    dlg.innerHTML = `
+      <div class="dlg">
+        <h2 id="bk-title">Бронь подтверждена</h2>
+        <div><div class="ref">${esc(b.reference)}</div><small class="hint">номер брони — назовите его на ресепшене</small></div>
+        <div class="alert ok">${esc(b.hotelName)}, ${esc(b.city)} · ${fmtDate(b.checkIn)} — ${fmtDate(b.checkOut)}, ${b.nights} ${nightsWord(b.nights)} · ${rub(b.total)}</div>
+        <div id="bk-msg" aria-live="polite"></div>
+        <div class="dlg-foot">
+          ${b.refundable ? '<button class="linkish" type="button" data-cancel>Отменить бронь</button>' : '<span class="hint">Тариф невозвратный</span>'}
+          <button class="book" type="button" data-close>Готово</button>
+        </div>
+      </div>`;
+    dlg.querySelector('[data-close]').onclick = () => dlg.close();
+    const c = dlg.querySelector('[data-cancel]');
+    if (c) c.onclick = () => cancelBooking(b);
+  }
+
+  async function cancelBooking(b) {
+    const msg = dlg.querySelector('#bk-msg');
+    try {
+      const res = await fetch('/api/v1/bookings/' + b.id, { method: 'DELETE' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.detail || 'Ошибка ' + res.status);
+      clearInterval(timerId);
+      dlg.innerHTML = `<div class="dlg"><h2 id="bk-title">Бронь ${esc(body.reference)} отменена</h2>
+        <div class="alert info">Номер вернулся в продажу.${b.status === 'CONFIRMED' ? ' Деньги вернутся на карту.' : ''}</div>
+        <div class="dlg-foot"><span></span><button class="book" type="button" data-close>Закрыть</button></div></div>`;
+      dlg.querySelector('[data-close]').onclick = () => dlg.close();
+    } catch (err) {
+      msg.innerHTML = `<div class="alert err" role="alert">${esc(err.message)}</div>`;
+    }
+  }
+
+  function startTimer(expiresAt) {
+    clearInterval(timerId);
+    const end = new Date(expiresAt).getTime();
+    const tick = () => {
+      const el = document.getElementById('bk-timer');
+      if (!el) { clearInterval(timerId); return; }
+      const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+      el.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+      el.classList.toggle('low', left < 120);
+      if (left === 0) {
+        clearInterval(timerId);
+        dlg.querySelector('#bk-msg').innerHTML = `<div class="alert err">Время удержания вышло — номер вернулся в продажу. Создайте бронь заново.</div>`;
+        dlg.querySelectorAll('[data-pay]').forEach(x => x.disabled = true);
+      }
+    };
+    tick(); timerId = setInterval(tick, 1000);
+  }
+
+  const fmtDate = d => new Date(d + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  dlg.addEventListener('close', () => clearInterval(timerId));
 
   function drawMap(hotels) {
     if (!window.L) return;

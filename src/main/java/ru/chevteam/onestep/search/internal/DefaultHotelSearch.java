@@ -123,7 +123,7 @@ class DefaultHotelSearch implements HotelSearch {
                                       MatchScorer.LandmarkRef landmark) {
         MatchScorer.Scored scored = MatchScorer.score(intent, c, price, landmark);
         return new HotelMatch(c.id(), c.name(), c.city(), c.district(), c.stars(), c.rating(), c.reviewsCount(),
-                c.description(), c.location(), scored.matchPercent(), price, c.rate().roomName(),
+                c.description(), c.location(), scored.matchPercent(), price, c.rate().rateId(), c.rate().roomName(),
                 c.rate().mealPlan(), c.rate().refundable(), scored.reasons(), c.nearby());
     }
 }

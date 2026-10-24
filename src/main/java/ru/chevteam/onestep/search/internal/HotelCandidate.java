@@ -44,6 +44,6 @@ public record HotelCandidate(
         nearby = nearby == null ? List.of() : List.copyOf(nearby);
     }
 
-    public record Rate(String roomName, MealPlan mealPlan, BigDecimal pricePerNight, boolean refundable) {
+    public record Rate(UUID rateId, String roomName, MealPlan mealPlan, BigDecimal pricePerNight, boolean refundable) {
     }
 }

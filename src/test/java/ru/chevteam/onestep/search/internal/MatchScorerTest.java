@@ -88,7 +88,7 @@ class MatchScorerTest {
                 new GeoPoint(0, 0), beachLine, beachLine != null ? 50 : null, 500, 30,
                 new BigDecimal("9.0"), new BigDecimal("9.0"), new BigDecimal("9.0"),
                 family == null ? null : new BigDecimal(family), "desc", amenities,
-                new HotelCandidate.Rate("Стандарт", MealPlan.ALL_INCLUSIVE, BigDecimal.valueOf(7400), true),
+                new HotelCandidate.Rate(UUID.randomUUID(), "Стандарт", MealPlan.ALL_INCLUSIVE, BigDecimal.valueOf(7400), true),
                 BigDecimal.ONE, landmarkDistance, List.of());
     }
 }

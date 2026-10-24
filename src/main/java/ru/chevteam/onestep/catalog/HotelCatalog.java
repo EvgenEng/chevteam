@@ -1,5 +1,6 @@
 package ru.chevteam.onestep.catalog;
 
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -7,4 +8,10 @@ import java.util.UUID;
 public interface HotelCatalog {
 
     Optional<HotelDetails> findById(UUID id);
+
+    /**
+     * Цена тарифа за проживание: каждая ночь считается по коэффициенту своего месяца
+     * (поездка 28 мая – 3 июня захватывает два сезона).
+     */
+    Optional<RateQuote> quote(UUID rateId, LocalDate checkIn, int nights);
 }

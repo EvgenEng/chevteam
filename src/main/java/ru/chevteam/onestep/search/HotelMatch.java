@@ -18,6 +18,7 @@ public record HotelMatch(
         GeoPoint location,
         int matchPercent,
         PriceQuote price,
+        UUID rateId,
         String roomName,
         MealPlan mealPlan,
         boolean refundable,
