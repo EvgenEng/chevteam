@@ -24,6 +24,8 @@
         <resilience4j.version>2.2.0</resilience4j.version>
         <archunit.version>1.3.0</archunit.version>
         <jacoco.version>0.8.12</jacoco.version>
+        <!-- 1.21.4+: совместимость с Docker Engine 29 (минимальный API 1.44) -->
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 
     <dependencyManagement>
