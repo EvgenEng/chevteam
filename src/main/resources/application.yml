@@ -1,0 +1,83 @@
+spring:
+  application:
+    name: onestep
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/onestep}
+    username: ${DB_USER:onestep}
+    password: ${DB_PASSWORD:onestep}
+    hikari:
+      maximum-pool-size: 20
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 500ms
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+  mvc:
+    problemdetails:
+      enabled: true
+
+app:
+  search:
+    max-results: 10
+    budget-tolerance: 0.30
+  llm:
+    provider: ${LLM_PROVIDER:none}   # none | gigachat | yandexgpt
+    connect-timeout: 3s
+    read-timeout: 10s
+    gigachat:
+      auth-key: ${GIGACHAT_AUTH_KEY:}
+      scope: ${GIGACHAT_SCOPE:GIGACHAT_API_PERS}
+      model: GigaChat
+      oauth-url: https://ngw.devices.sberbank.ru:9443/api/v2/oauth
+      api-url: https://gigachat.devices.sberbank.ru/api/v1
+    yandexgpt:
+      api-key: ${YANDEX_API_KEY:}
+      folder-id: ${YANDEX_FOLDER_ID:}
+      model: yandexgpt-lite
+      api-url: https://llm.api.cloud.yandex.net/foundationModels/v1
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      llm:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 8s
+        slow-call-rate-threshold: 80
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 2
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus, modulith
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{correlationId:-}]"
