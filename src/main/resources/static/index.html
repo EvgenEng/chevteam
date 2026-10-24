@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>О!дин шаг — отель одним запросом</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root {
+    --paper: #F3F6FB;
+    --surface: #FFFFFF;
+    --ink: #12223D;
+    --muted: #5B6B84;
+    --line: #D9E1EC;
+    --sea: #1F5FBF;
+    --marker: #FFE36E;
+    --ok: #237A4B;
+    --part: #A86A00;
+    --miss: #B23A33;
+    --radius-lg: 18px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 16px/1.55 "Onest", system-ui, sans-serif;
+  }
+  a { color: var(--sea); }
+  :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+
+  header { padding: 28px 0 8px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .brand { font: 700 22px/1 "Unbounded", sans-serif; letter-spacing: -0.02em; margin: 0; }
+  .brand b { color: var(--sea); }
+  .tagline { color: var(--muted); margin: 0; }
+
+  /* Герой — сам запрос */
+  .ask { padding: 28px 0 8px; }
+  .ask h1 {
+    font: 700 clamp(28px, 5vw, 52px)/1.08 "Unbounded", sans-serif;
+    letter-spacing: -0.03em; margin: 0 0 22px; max-width: 18ch;
+  }
+  .composer {
+    background: var(--surface); border: 2px solid var(--ink); border-radius: var(--radius-lg);
+    padding: 16px 16px 12px; box-shadow: 6px 6px 0 var(--ink);
+  }
+  .composer textarea {
+    width: 100%; border: 0; resize: vertical; min-height: 92px; background: transparent;
+    font: 500 clamp(17px, 2.2vw, 21px)/1.5 "Onest", sans-serif; color: var(--ink);
+  }
+  .composer textarea:focus { outline: none; }
+  .composer:focus-within { box-shadow: 6px 6px 0 var(--sea); border-color: var(--sea); }
+  .composer-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 8px; }
+  .hint { color: var(--muted); font-size: 14px; }
+  button.primary {
+    font: 600 16px/1 "Onest", sans-serif; background: var(--ink); color: #fff; border: 0;
+    border-radius: 999px; padding: 14px 22px; cursor: pointer;
+  }
+  button.primary:hover { background: var(--sea); }
+  button.primary:disabled { opacity: .6; cursor: progress; }
+  .examples { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 0; padding: 0; list-style: none; }
+  .examples button {
+    font: 500 14px/1.3 "Onest", sans-serif; text-align: left; background: transparent; color: var(--ink);
+    border: 1px dashed var(--muted); border-radius: var(--radius-sm); padding: 8px 12px; cursor: pointer; max-width: 380px;
+  }
+  .examples button:hover { border-style: solid; border-color: var(--ink); background: var(--surface); }
+
+  /* Как поняли */
+  .understood { margin: 30px 0 6px; font-size: clamp(18px, 2.4vw, 24px); line-height: 2; }
+  .understood .lead { font-weight: 600; margin-right: 6px; }
+  .understood { overflow-wrap: anywhere; }
+  .chip {
+    display: inline; padding: 2px 8px; margin-right: 6px; border-radius: 4px;
+    background: linear-gradient(transparent 12%, var(--marker) 12%, var(--marker) 88%, transparent 88%);
+    box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  }
+  .source { font-size: 13px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; white-space: nowrap; vertical-align: middle; }
+  .notes { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 15px; }
+  .notes li::before { content: "≈ "; color: var(--part); font-weight: 700; }
+  .notes li.q::before { content: "? "; color: var(--sea); }
+
+  /* Результаты */
+  .results { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 24px; margin: 22px 0 60px; }
+  .list { display: grid; gap: 16px; align-content: start; }
+  .map { position: sticky; top: 16px; height: calc(100vh - 32px); min-height: 420px; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--line); }
+  @media (max-width: 900px) {
+    .results { grid-template-columns: 1fr; }
+    .map { position: relative; height: 320px; min-height: 0; order: -1; }
+  }
+
+  .hotel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px; display: grid; grid-template-columns: 72px 1fr; gap: 16px; }
+  .hotel.top { border: 2px solid var(--ink); }
+  .score { text-align: center; }
+  .score strong { display: block; font: 700 26px/1 "Unbounded", sans-serif; }
+  .score span { font-size: 12px; color: var(--muted); }
+  .meter { height: 6px; border-radius: 3px; background: var(--line); margin-top: 8px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--ink); }
+  .hotel h2 { font: 600 20px/1.25 "Onest", sans-serif; margin: 0; }
+  .meta { color: var(--muted); font-size: 14px; margin: 2px 0 8px; }
+  .stars { color: var(--part); letter-spacing: 1px; }
+  .rating { font-weight: 600; color: var(--ink); }
+  .desc { margin: 0 0 10px; font-size: 15px; }
+  .reasons { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 3px; font-size: 15px; }
+  .reasons li { padding-left: 22px; position: relative; }
+  .reasons li::before { position: absolute; left: 0; font-weight: 700; }
+  .reasons .MATCH::before { content: "✓"; color: var(--ok); }
+  .reasons .PARTIAL::before { content: "~"; color: var(--part); }
+  .reasons .MISS::before { content: "✕"; color: var(--miss); }
+  .reasons .INFO { color: var(--muted); }
+  .reasons .INFO::before { content: "i"; color: var(--muted); font-style: italic; }
+  .foot { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px; }
+  .price strong { font: 700 22px/1 "Unbounded", sans-serif; }
+  .price small { display: block; color: var(--muted); margin-top: 4px; }
+  .nearby { font-size: 14px; color: var(--muted); margin: 0 0 10px; }
+  button.ghost { font: 600 14px/1 "Onest", sans-serif; background: transparent; border: 1.5px solid var(--ink); color: var(--ink); border-radius: 999px; padding: 10px 16px; cursor: pointer; }
+  button.ghost:hover { background: var(--ink); color: #fff; }
+  .rates { grid-column: 1 / -1; margin: 4px 0 0; border-collapse: collapse; width: 100%; font-size: 14px; }
+  .rates th, .rates td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .rates th { color: var(--muted); font-weight: 500; }
+
+  .state { padding: 28px; background: var(--surface); border-radius: var(--radius-lg); border: 1px dashed var(--muted); }
+  .skeleton { height: 180px; border-radius: var(--radius-lg); background: linear-gradient(90deg, #e7edf5, #f6f8fb, #e7edf5); background-size: 200% 100%; animation: shimmer 1.2s infinite linear; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  footer { color: var(--muted); font-size: 13px; padding: 0 0 30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="brand">О<b>!</b>дин шаг</p>
+    <p class="tagline">Опишите поездку своими словами — подберём отель и объясним выбор</p>
+  </header>
+
+  <section class="ask" aria-labelledby="ask-title">
+    <h1 id="ask-title">Какую поездку вы&nbsp;представляете?</h1>
+    <form class="composer" id="form">
+      <label for="q" class="visually-hidden">Запрос</label>
+      <textarea id="q" maxlength="1000" placeholder="Например: Турция в мае на 10 дней, всё включено, аквапарк, двое взрослых и ребёнок 7 лет, до 80 тысяч"></textarea>
+      <div class="composer-row">
+        <span class="hint">Куда, когда, с кем, бюджет и что важно — в любом порядке</span>
+        <button class="primary" id="go" type="submit">Подобрать отель</button>
+      </div>
+    </form>
+    <ul class="examples" aria-label="Примеры запросов">
+      <li><button type="button">Хочу в Турцию на 10 дней в мае, всё включено, отель с аквапарком, двое взрослых и ребёнок 7 лет, до 80 тысяч. Лечу из Москвы, можно с пересадкой но лучше прямой.</button></li>
+      <li><button type="button">Ищу отель в Сочи на 7 дней в сентябре, 4 звезды, на первой линии, с завтраком, бюджет до 50 тысяч. Один еду.</button></li>
+      <li><button type="button">Куда сходить в Питере на 2 ночи в выходные в январе? Центр, до Эрмитажа пешком минут 15, чисто, тихо, хороший Wi-Fi. До 8000 за двое суток.</button></li>
+    </ul>
+  </section>
+
+  <section id="understood" aria-live="polite"></section>
+
+  <section class="results" id="results" hidden>
+    <div class="list" id="list"></div>
+    <div class="map" id="map" role="img" aria-label="Отели на карте"></div>
+  </section>
+
+  <footer>Демо для хакатона Островка, команда ChevTeam. Отели в каталоге вымышленные, районы и достопримечательности — настоящие.</footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+  const form = document.getElementById('form');
+  const q = document.getElementById('q');
+  const go = document.getElementById('go');
+  const understoodEl = document.getElementById('understood');
+  const results = document.getElementById('results');
+  const list = document.getElementById('list');
+  let map, layer;
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const rub = n => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(n) + ' ₽';
+  const nightsWord = n => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? 'ночь' : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? 'ночи' : 'ночей'; };
+  const MEALS = { ROOM_ONLY: 'Без питания', BREAKFAST: 'Завтрак', HALF_BOARD: 'Полупансион', FULL_BOARD: 'Полный пансион', ALL_INCLUSIVE: 'Всё включено' };
+
+  document.querySelectorAll('.examples button').forEach(b => b.addEventListener('click', () => {
+    q.value = b.textContent.trim(); form.requestSubmit();
+  }));
+  q.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) form.requestSubmit(); });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const query = q.value.trim();
+    if (!query) { q.focus(); return; }
+    go.disabled = true; go.textContent = 'Подбираем…';
+    results.hidden = false;
+    list.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+    understoodEl.innerHTML = '';
+    try {
+      const res = await fetch('/api/v1/search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query })
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.detail || 'Сервис поиска ответил ошибкой ' + res.status);
+      render(body);
+    } catch (err) {
+      results.hidden = true;
+      understoodEl.innerHTML = `<div class="state" role="alert">Не удалось выполнить поиск: ${esc(err.message)}. Проверьте, что сервер запущен, и попробуйте ещё раз.</div>`;
+    } finally {
+      go.disabled = false; go.textContent = 'Подобрать отель';
+    }
+  });
+
+  function render(data) {
+    const u = data.understood;
+    const notes = [
+      ...u.assumptions.map(a => `<li>${esc(a)}</li>`),
+      ...u.clarifications.map(c => `<li class="q">${esc(c)}</li>`)
+    ].join('');
+    understoodEl.innerHTML = `
+      <p class="understood"><span class="lead">Ищем:</span>${u.summary.map(s => `<span class="chip">${esc(s)}</span>`).join(' ')}
+        <span class="source">${u.source === 'AI' ? 'разобрано AI' : 'разобрано правилами'}</span></p>
+      ${notes ? `<ul class="notes">${notes}</ul>` : ''}`;
+
+    if (!data.hotels.length) {
+      list.innerHTML = `<div class="state">Под все условия ничего не нашлось. Попробуйте поднять бюджет или убрать одно пожелание — например, звёздность.</div>`;
+      drawMap([]);
+      return;
+    }
+    list.innerHTML = data.hotels.map((h, i) => card(h, i)).join('');
+    list.querySelectorAll('[data-rates]').forEach(btn => btn.addEventListener('click', () => toggleRates(btn)));
+    drawMap(data.hotels);
+  }
+
+  function card(h, i) {
+    const nearby = h.nearby.length
+      ? `<p class="nearby">Рядом: ${h.nearby.map(p => `${esc(p.name)} — ${p.walkMinutes} мин`).join(', ')}</p>` : '';
+    return `
+      <article class="hotel${i === 0 ? ' top' : ''}" id="h-${h.hotelId}">
+        <div class="score" aria-label="Совпадение с запросом ${h.matchPercent} процентов">
+          <strong>${h.matchPercent}%</strong><span>совпадение</span>
+          <div class="meter"><i style="width:${h.matchPercent}%"></i></div>
+        </div>
+        <div>
+          <h2>${esc(h.name)}</h2>
+          <p class="meta"><span class="stars" aria-label="${h.stars} звёзд">${'★'.repeat(h.stars)}</span>
+            ${esc(h.city)}${h.district ? ', ' + esc(h.district) : ''},
+            <span class="rating">${h.rating}</span> по ${h.reviewsCount} отзывам</p>
+          <p class="desc">${esc(h.description)}</p>
+          <ul class="reasons">${h.reasons.map(r => `<li class="${r.kind}">${esc(r.text)}</li>`).join('')}</ul>
+          ${nearby}
+          <div class="foot">
+            <div class="price"><strong>${rub(h.price.total)}</strong>
+              <small>за ${h.price.nights} ${nightsWord(h.price.nights)}, ${rub(h.price.perNight)} в сутки · ${esc(h.roomName)}, ${esc(MEALS[h.mealPlan] || h.mealPlan)}</small></div>
+            <button class="ghost" type="button" data-rates="${h.hotelId}" aria-expanded="false">Все тарифы</button>
+          </div>
+        </div>
+      </article>`;
+  }
+
+  async function toggleRates(btn) {
+    const article = btn.closest('.hotel');
+    const existing = article.querySelector('.rates');
+    if (existing) { existing.remove(); btn.setAttribute('aria-expanded', 'false'); btn.textContent = 'Все тарифы'; return; }
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/v1/hotels/' + btn.dataset.rates);
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail);
+      const rows = d.rates.map(r => `<tr><td>${esc(r.roomName)}</td><td>${esc(MEALS[r.mealPlan] || r.mealPlan)}</td>
+        <td>${r.maxAdults} взр.${r.maxChildren ? ' + ' + r.maxChildren + ' дет.' : ''}</td><td>${rub(r.basePricePerNight)}</td>
+        <td>${r.refundable ? 'бесплатная отмена' : 'невозвратный'}</td></tr>`).join('');
+      article.insertAdjacentHTML('beforeend', `<table class="rates"><caption class="visually-hidden">Тарифы ${esc(d.name)}</caption>
+        <thead><tr><th>Номер</th><th>Питание</th><th>Гости</th><th>Базовая цена за ночь</th><th>Условия</th></tr></thead><tbody>${rows}</tbody></table>`);
+      btn.setAttribute('aria-expanded', 'true'); btn.textContent = 'Скрыть тарифы';
+    } catch (err) {
+      article.insertAdjacentHTML('beforeend', `<p class="rates" role="alert">Не удалось загрузить тарифы: ${esc(err.message)}</p>`);
+    } finally { btn.disabled = false; }
+  }
+
+  function drawMap(hotels) {
+    if (!window.L) return;
+    if (!map) {
+      map = L.map('map', { scrollWheelZoom: false });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18, attribution: '&copy; участники OpenStreetMap'
+      }).addTo(map);
+    }
+    if (layer) layer.remove();
+    layer = L.layerGroup().addTo(map);
+    const points = hotels.map((h, i) => {
+      const icon = L.divIcon({ className: '', iconSize: [34, 34], iconAnchor: [17, 17],
+        html: `<div style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:700 13px Onest,sans-serif;
+          background:${i === 0 ? '#12223D' : '#fff'};color:${i === 0 ? '#fff' : '#12223D'};border:2px solid #12223D">${h.matchPercent}</div>` });
+      L.marker([h.location.lat, h.location.lon], { icon, title: h.name }).addTo(layer)
+        .bindPopup(`<strong>${esc(h.name)}</strong><br>${rub(h.price.total)}`)
+        .on('click', () => document.getElementById('h-' + h.hotelId)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+      return [h.location.lat, h.location.lon];
+    });
+    setTimeout(() => {
+      map.invalidateSize();
+      if (points.length) map.fitBounds(points, { padding: [40, 40], maxZoom: 15 });
+      else map.setView([55.75, 37.62], 4);
+    }, 50);
+  }
+})();
+</script>
+</body>
+</html>
