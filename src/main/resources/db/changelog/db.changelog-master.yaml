@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-schema
+      author: chevteam
+      changes:
+        - sqlFile:
+            path: sql/001-schema.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 002-seed-demo-catalog
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/002-seed-demo-catalog.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
