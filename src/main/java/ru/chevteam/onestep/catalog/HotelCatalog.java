@@ -14,4 +14,7 @@ public interface HotelCatalog {
      * (поездка 28 мая – 3 июня захватывает два сезона).
      */
     Optional<RateQuote> quote(UUID rateId, LocalDate checkIn, int nights);
+
+    /** Цена питания, которое отель добавляет к любому своему тарифу. */
+    Optional<MealAddonPrice> mealAddon(UUID hotelId, String mealPlan);
 }

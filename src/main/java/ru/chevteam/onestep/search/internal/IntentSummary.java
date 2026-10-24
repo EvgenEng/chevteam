@@ -1,12 +1,19 @@
 package ru.chevteam.onestep.search.internal;
 
+import ru.chevteam.onestep.intent.AccessNeed;
 import ru.chevteam.onestep.intent.Amenity;
+import ru.chevteam.onestep.intent.BeachActivity;
+import ru.chevteam.onestep.intent.BeachPreference;
+import ru.chevteam.onestep.intent.DietNeed;
 import ru.chevteam.onestep.intent.Guests;
 import ru.chevteam.onestep.intent.LocationFeature;
 import ru.chevteam.onestep.intent.ProximityConstraint;
+import ru.chevteam.onestep.intent.RoomFeature;
 import ru.chevteam.onestep.intent.SearchIntent;
 import ru.chevteam.onestep.intent.SoftPreference;
 import ru.chevteam.onestep.intent.StayPeriod;
+import ru.chevteam.onestep.intent.TransitConstraint;
+import ru.chevteam.onestep.intent.TransitKind;
 
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -61,6 +68,20 @@ final class IntentSummary {
             chips.add("≤" + p.maxWalkMinutes() + " мин пешком: " + name);
         }
         intent.softPreferences().stream().map(SoftPreference::title).forEach(chips::add);
+        intent.beach().stream().map(BeachPreference::title).forEach(chips::add);
+        intent.activities().stream().map(BeachActivity::title).forEach(chips::add);
+        intent.access().stream().map(AccessNeed::title).forEach(chips::add);
+        intent.room().stream().map(RoomFeature::title).forEach(chips::add);
+        intent.pets().stream().map(p -> "с питомцем: " + p.title().toLowerCase(RU)).forEach(chips::add);
+        intent.wildlife().stream().map(w -> "увидеть: " + w.title().toLowerCase(RU)).forEach(chips::add);
+        intent.diet().stream().map(DietNeed::title).forEach(chips::add);
+        for (TransitConstraint c : intent.transit()) {
+            chips.add(c.kind() == TransitKind.METRO ? "≤" + c.maxMinutes() + " мин до метро"
+                    : "до " + c.kind().genitive() + " ≤" + MatchScorer.duration(c.maxMinutes()));
+        }
+        if (intent.visaFreeOnly()) {
+            chips.add("без визы");
+        }
         if (intent.transport() != null && intent.transport().originCity() != null) {
             chips.add("вылет: " + intent.transport().originCity()
                     + (intent.transport().directPreferred() ? ", лучше прямой" : ""));

@@ -5,11 +5,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import ru.chevteam.onestep.catalog.Pricing;
+import ru.chevteam.onestep.guide.BeachInfo;
+import ru.chevteam.onestep.guide.EntryInfo;
+import ru.chevteam.onestep.guide.SeasonInfo;
+import ru.chevteam.onestep.guide.TravelGuide;
+import ru.chevteam.onestep.guide.WildlifeInfo;
 import ru.chevteam.onestep.intent.Destination;
 import ru.chevteam.onestep.intent.ExtractionResult;
 import ru.chevteam.onestep.intent.IntentExtractor;
+import ru.chevteam.onestep.intent.MealPlan;
 import ru.chevteam.onestep.intent.ProximityConstraint;
 import ru.chevteam.onestep.intent.SearchIntent;
+import ru.chevteam.onestep.search.BeachView;
 import ru.chevteam.onestep.search.HotelMatch;
 import ru.chevteam.onestep.search.HotelSearch;
 import ru.chevteam.onestep.search.PriceQuote;
@@ -20,7 +28,9 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -36,13 +46,15 @@ class DefaultHotelSearch implements HotelSearch {
 
     private final IntentExtractor intentExtractor;
     private final CandidateRepository candidates;
+    private final TravelGuide guide;
     private final SearchProperties props;
     private final Clock clock;
 
-    DefaultHotelSearch(IntentExtractor intentExtractor, CandidateRepository candidates,
+    DefaultHotelSearch(IntentExtractor intentExtractor, CandidateRepository candidates, TravelGuide guide,
                        SearchProperties props, Clock clock) {
         this.intentExtractor = intentExtractor;
         this.candidates = candidates;
+        this.guide = guide;
         this.props = props;
         this.clock = clock;
     }
@@ -59,13 +71,16 @@ class DefaultHotelSearch implements HotelSearch {
         ProximityConstraint proximity = landmark.isPresent() ? intent.proximity().get(0) : null;
 
         int nights = intent.stay().nights() != null ? intent.stay().nights() : 7;
-        int month = intent.stay().month() != null
+        boolean monthExplicit = intent.stay().month() != null;
+        int month = monthExplicit
                 ? intent.stay().month().getMonthValue()
                 : LocalDate.now(clock).getMonthValue();
 
+        Destination where = intent.destination();
         CandidateQuery candidateQuery = new CandidateQuery(
-                intent.destination() != null ? intent.destination().country() : null,
-                intent.destination() != null ? intent.destination().city() : null,
+                where != null ? where.country() : null,
+                where != null && where.city() == null ? where.region() : null,
+                where != null ? where.city() : null,
                 intent.minStars(),
                 intent.guests().adults(),
                 intent.guests().children(),
@@ -78,23 +93,28 @@ class DefaultHotelSearch implements HotelSearch {
         List<HotelCandidate> found = candidates.find(candidateQuery);
         String notice = null;
         boolean relaxed = false;
-        if (found.isEmpty() && intent.destination() != null) {
-            Destination wanted = intent.destination();
-            if (wanted.city() != null) {
-                found = candidates.find(candidateQuery.withDestination(wanted.country(), null));
+        if (found.isEmpty() && where != null) {
+            relaxed = true;
+            if (where.city() != null && where.region() != null) {
+                found = candidates.find(candidateQuery.withDestination(where.country(), where.region(), null));
                 if (!found.isEmpty()) {
-                    relaxed = true;
-                    notice = "В демо-каталоге нет отелей в городе " + wanted.city()
-                            + " — показываем другие курорты: " + wanted.country() + ".";
+                    notice = "В демо-каталоге нет отелей в городе " + where.city()
+                            + " — показываем другие места: " + where.region() + ".";
+                }
+            }
+            if (found.isEmpty() && (where.city() != null || where.region() != null)) {
+                found = candidates.find(candidateQuery.withDestination(where.country(), null, null));
+                if (!found.isEmpty()) {
+                    notice = "В демо-каталоге нет отелей: " + where.displayName()
+                            + " — показываем другие места: " + where.country() + ".";
                 }
             }
             if (found.isEmpty()) {
-                found = candidates.find(candidateQuery.withDestination(null, null));
-                relaxed = true;
-                notice = "В демо-каталоге пока нет отелей в направлении «" + wanted.displayName()
+                found = candidates.find(candidateQuery.withDestination(null, null, null));
+                notice = "В демо-каталоге пока нет отелей в направлении «" + where.displayName()
                         + "». Ниже — лучшие варианты по остальным вашим условиям в других странах.";
             }
-        } else if (intent.destination() == null) {
+        } else if (where == null) {
             notice = "Направление не указано — подобрали лучшие варианты по остальным условиям во всех странах.";
         }
 
@@ -104,9 +124,25 @@ class DefaultHotelSearch implements HotelSearch {
         BigDecimal budgetCeiling = intent.budget() == null ? null
                 : intent.budget().totalFor(nights).multiply(BigDecimal.ONE.add(props.budgetTolerance()));
 
+        Map<String, Optional<SeasonInfo>> seasons = new HashMap<>();
+        Map<String, Optional<EntryInfo>> entries = new HashMap<>();
+        Map<String, List<WildlifeInfo>> wildlife = new HashMap<>();
         List<HotelMatch> ranked = found.stream()
-                .map(c -> toMatch(intent, c, PriceCalculator.quote(c.rate().pricePerNight(), c.seasonCoefficient(), nights),
-                        landmarkRef))
+                .map(c -> {
+                    Optional<SeasonInfo> season = seasons.computeIfAbsent(c.country() + "|" + c.city(),
+                            k -> guide.season(c.country(), c.city(), month));
+                    BeachInfo beach = guide.beach(c.beachId()).orElse(null);
+                    List<MatchScorer.NearbyBeach> alternatives = intent.activities().isEmpty() ? List.of()
+                            : alternativeBeaches(c, beach);
+                    Optional<EntryInfo> entry = entries.computeIfAbsent(c.country() + "|" + c.city(),
+                            k -> guide.entry(c.country(), c.city()));
+                    Integer toBeach = c.distanceToBeachM() != null ? c.distanceToBeachM() : c.beachDistanceM();
+                    List<WildlifeInfo> animals = wildlife.computeIfAbsent(c.country() + "|" + c.city(),
+                            k -> guide.wildlife(c.country(), c.city()));
+                    MatchScorer.Context ctx = new MatchScorer.Context(beach, toBeach, season.orElse(null), month,
+                            monthExplicit, alternatives, entry.orElse(null), animals);
+                    return toMatch(intent, c, priceWithMeal(intent, c, nights), landmarkRef, ctx);
+                })
                 .filter(m -> budgetCeiling == null || m.price().total().compareTo(budgetCeiling) <= 0)
                 .sorted(Comparator.comparingInt(HotelMatch::matchPercent).reversed()
                         .thenComparing(m -> m.price().total()))
@@ -142,11 +178,41 @@ class DefaultHotelSearch implements HotelSearch {
         return resolved;
     }
 
+    private List<MatchScorer.NearbyBeach> alternativeBeaches(HotelCandidate c, BeachInfo nearest) {
+        return guide.beachesIn(c.city()).stream()
+                .filter(b -> nearest == null || !b.id().equals(nearest.id()))
+                .map(b -> new MatchScorer.NearbyBeach(b, Distance.meters(c.location().lat(), c.location().lon(), b.lat(), b.lon())))
+                .filter(nb -> nb.distanceMeters() <= MatchScorer.ALT_BEACH_RADIUS_M)
+                .sorted(Comparator.comparingInt(MatchScorer.NearbyBeach::distanceMeters))
+                .toList();
+    }
+
+    /**
+     * Цена для сравнения с бюджетом. Если человек просит питание, которого нет в тарифе, а отель его добавляет, —
+     * доплата сразу входит в цену: иначе отель с завтраками казался бы дешевле, чем обойдётся поездка.
+     */
+    static PriceQuote priceWithMeal(SearchIntent intent, HotelCandidate c, int nights) {
+        PriceQuote base = PriceCalculator.quote(c.rate().pricePerNight(), c.seasonCoefficient(), nights);
+        MealPlan wanted = intent.mealPlan();
+        if (wanted == null || wanted == c.rate().mealPlan()) {
+            return base;
+        }
+        return c.services().addon(wanted)
+                .map(a -> base.withMeal(wanted, Pricing.mealAddonTotal(a.adultPerNight(), a.childPerNight(), a.childFreeUnder(),
+                        intent.guests().adults(), intent.guests().childrenAges(), nights)))
+                .orElse(base);
+    }
+
     private static HotelMatch toMatch(SearchIntent intent, HotelCandidate c, PriceQuote price,
-                                      MatchScorer.LandmarkRef landmark) {
-        MatchScorer.Scored scored = MatchScorer.score(intent, c, price, landmark);
-        return new HotelMatch(c.id(), c.name(), c.city(), c.district(), c.stars(), c.rating(), c.reviewsCount(),
-                c.description(), c.location(), scored.matchPercent(), price, c.rate().rateId(), c.rate().roomName(),
-                c.rate().mealPlan(), c.rate().refundable(), scored.reasons(), c.nearby());
+                                      MatchScorer.LandmarkRef landmark, MatchScorer.Context ctx) {
+        MatchScorer.Scored scored = MatchScorer.score(intent, c, price, landmark, ctx);
+        // у пляжной линии отеля расстояние точнее, чем до «центральной точки» длинного пляжа
+        Integer toBeach = ctx.beachDistanceM();
+        BeachView beach = ctx.beach() == null || toBeach == null ? null
+                : new BeachView(ctx.beach(), toBeach, WalkingTime.minutes(toBeach));
+        return new HotelMatch(c.id(), c.name(), c.country(), c.region(), c.city(), c.district(), c.stars(), c.rating(),
+                c.reviewsCount(), c.description(), c.location(), scored.matchPercent(), price, c.rate().rateId(),
+                c.rate().roomName(), c.rate().mealPlan(), c.rate().refundable(), scored.reasons(), c.nearby(),
+                beach, ctx.season(), c.accessibility(), c.policies(), ctx.entry(), c.surroundings(), ctx.wildlife(), c.services());
     }
 }

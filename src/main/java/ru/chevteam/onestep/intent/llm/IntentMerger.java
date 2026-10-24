@@ -1,18 +1,27 @@
 package ru.chevteam.onestep.intent.llm;
 
+import ru.chevteam.onestep.intent.AccessNeed;
 import ru.chevteam.onestep.intent.Amenity;
+import ru.chevteam.onestep.intent.BeachActivity;
+import ru.chevteam.onestep.intent.BeachPreference;
 import ru.chevteam.onestep.intent.Budget;
 import ru.chevteam.onestep.intent.Destination;
+import ru.chevteam.onestep.intent.DietNeed;
 import ru.chevteam.onestep.intent.ExtractionResult;
 import ru.chevteam.onestep.intent.Guests;
 import ru.chevteam.onestep.intent.IntentSource;
 import ru.chevteam.onestep.intent.LocationFeature;
 import ru.chevteam.onestep.intent.MealPlan;
+import ru.chevteam.onestep.intent.PetKind;
 import ru.chevteam.onestep.intent.ProximityConstraint;
+import ru.chevteam.onestep.intent.RoomFeature;
 import ru.chevteam.onestep.intent.SearchIntent;
 import ru.chevteam.onestep.intent.SoftPreference;
 import ru.chevteam.onestep.intent.StayPeriod;
+import ru.chevteam.onestep.intent.TransitConstraint;
+import ru.chevteam.onestep.intent.TransitKind;
 import ru.chevteam.onestep.intent.TransportPreference;
+import ru.chevteam.onestep.intent.Wildlife;
 import ru.chevteam.onestep.intent.rules.IntentField;
 import ru.chevteam.onestep.intent.rules.Note;
 import ru.chevteam.onestep.intent.rules.RuleAnalysis;
@@ -22,6 +31,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -54,7 +64,7 @@ public final class IntentMerger {
 
         Destination destination = pick(rules, IntentField.DESTINATION, base.destination(),
                 () -> safe(() -> llm.country() == null || llm.country().isBlank() ? null
-                        : new Destination(llm.country().strip(), blankToNull(llm.city()))), overridden);
+                        : new Destination(llm.country().strip(), blankToNull(llm.region()), blankToNull(llm.city()))), overridden);
 
         YearMonth month = pick(rules, IntentField.MONTH, base.stay().month(),
                 () -> safe(() -> llm.month() == null ? null : nearestFuture(llm.month(), today)), overridden);
@@ -87,9 +97,19 @@ public final class IntentMerger {
         Set<SoftPreference> soft = union(base.softPreferences(), llm.softPreferences(), SoftPreference.class);
         Set<LocationFeature> location = union(base.locationFeatures(), llm.locationFeatures(), LocationFeature.class);
         List<ProximityConstraint> proximity = mergeProximity(base.proximity(), llm.landmarks());
+        Set<BeachPreference> beach = union(base.beach(), llm.beachPreferences(), BeachPreference.class);
+        Set<BeachActivity> activities = union(base.activities(), llm.activities(), BeachActivity.class);
+        Set<AccessNeed> access = union(base.access(), llm.accessNeeds(), AccessNeed.class);
+        Set<RoomFeature> room = union(base.room(), llm.roomFeatures(), RoomFeature.class);
+        Set<PetKind> pets = union(base.pets(), llm.pets(), PetKind.class);
+        boolean visaFree = base.visaFreeOnly() || Boolean.TRUE.equals(llm.visaFreeOnly());
+        Set<Wildlife> wildlife = union(base.wildlife(), llm.wildlife(), Wildlife.class);
+        Set<DietNeed> diet = union(base.diet(), llm.diet(), DietNeed.class);
+        List<TransitConstraint> transit = mergeTransit(base.transit(), llm.transit());
 
         SearchIntent merged = new SearchIntent(destination, stay, guests, budget, minStars, mealPlan,
-                amenities, soft, location, proximity, transport);
+                amenities, soft, location, proximity, transport, beach, activities, access, room, pets, visaFree, wildlife,
+                diet, transit);
 
         List<String> assumptions = texts(rules.assumptions(), overridden, Set.of());
         Set<IntentField> answered = EnumSet.noneOf(IntentField.class);
@@ -209,6 +229,25 @@ public final class IntentMerger {
             }
         }
         return new ArrayList<>(byLandmark.values());
+    }
+
+    /** Правила важнее: ограничение из текста не перетирается ответом модели, модель лишь добавляет новые. */
+    private static List<TransitConstraint> mergeTransit(List<TransitConstraint> base, List<LlmIntentPayload.Transit> llm) {
+        Map<TransitKind, TransitConstraint> byKind = new EnumMap<>(TransitKind.class);
+        base.forEach(c -> byKind.put(c.kind(), c));
+        if (llm != null) {
+            for (LlmIntentPayload.Transit t : llm) {
+                if (t == null) {
+                    continue;
+                }
+                TransitKind kind = enumOrNull(TransitKind.class, t.kind());
+                Integer minutes = inRange(t.maxMinutes(), 1, 600);
+                if (kind != null && minutes != null) {
+                    byKind.putIfAbsent(kind, new TransitConstraint(kind, minutes));
+                }
+            }
+        }
+        return new ArrayList<>(byKind.values());
     }
 
     /** Грубая основа слова для дедупликации «эрмитажа» / «эрмитаж»: первые 5 букв. */

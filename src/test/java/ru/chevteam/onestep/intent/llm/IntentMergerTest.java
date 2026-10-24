@@ -1,11 +1,20 @@
 package ru.chevteam.onestep.intent.llm;
 
 import org.junit.jupiter.api.Test;
+import ru.chevteam.onestep.intent.AccessNeed;
 import ru.chevteam.onestep.intent.Amenity;
+import ru.chevteam.onestep.intent.BeachActivity;
+import ru.chevteam.onestep.intent.BeachPreference;
 import ru.chevteam.onestep.intent.Budget;
+import ru.chevteam.onestep.intent.DietNeed;
 import ru.chevteam.onestep.intent.ExtractionResult;
 import ru.chevteam.onestep.intent.IntentSource;
 import ru.chevteam.onestep.intent.MealPlan;
+import ru.chevteam.onestep.intent.PetKind;
+import ru.chevteam.onestep.intent.RoomFeature;
+import ru.chevteam.onestep.intent.TransitConstraint;
+import ru.chevteam.onestep.intent.TransitKind;
+import ru.chevteam.onestep.intent.Wildlife;
 import ru.chevteam.onestep.intent.rules.RuleAnalysis;
 import ru.chevteam.onestep.intent.rules.RuleBasedIntentExtractor;
 
@@ -55,9 +64,9 @@ class IntentMergerTest {
     @Test
     void invalidLlmValuesAreDroppedNotFatal() {
         RuleAnalysis analysis = rules.analyze("Сочи");
-        LlmIntentPayload llm = new LlmIntentPayload("Россия", "Сочи", 13, "not-a-date", 0, 99,
+        LlmIntentPayload llm = new LlmIntentPayload("Россия", null, "Сочи", 13, "not-a-date", 0, 99,
                 List.of(4, 40), -5L, "TOTAL", 9, "SPACE_FOOD", List.of("POOL", "TELEPORT"),
-                null, null, null, null, null);
+                null, null, null, null, null, List.of("SANDY", "LAVA"), null, null, null, null, null, null, null, null);
 
         ExtractionResult result = IntentMerger.merge(llm, analysis, TODAY);
 
@@ -69,23 +78,34 @@ class IntentMergerTest {
         assertThat(result.intent().minStars()).isNull();
         assertThat(result.intent().mealPlan()).isNull();
         assertThat(result.intent().amenities()).containsExactly(Amenity.POOL);
+        assertThat(result.intent().beach()).containsExactly(BeachPreference.SANDY);
     }
 
     @Test
     void setsAreUnited() {
         RuleAnalysis analysis = rules.analyze("Турция, всё включено, аквапарк");
-        LlmIntentPayload llm = new LlmIntentPayload("Турция", null, null, null, null, null, null, null, null,
-                null, "HALF_BOARD", List.of("KIDS_CLUB"), null, null, null, null, null);
+        LlmIntentPayload llm = new LlmIntentPayload("Турция", null, null, null, null, null, null, null, null, null,
+                null, "HALF_BOARD", List.of("KIDS_CLUB"), null, null, null, null, null,
+                null, List.of("DIVING"), List.of("SENIORS"), List.of("BABY_COT"), List.of("DOG", "DRAGON"), true, List.of("DOLPHINS"),
+                List.of("HALAL", "PORK"), List.of(new LlmIntentPayload.Transit("AIRPORT", 40), new LlmIntentPayload.Transit("SPACEPORT", 5)));
 
         ExtractionResult result = IntentMerger.merge(llm, analysis, TODAY);
 
         assertThat(result.intent().mealPlan()).isEqualTo(MealPlan.ALL_INCLUSIVE);
         assertThat(result.intent().amenities()).containsExactlyInAnyOrder(Amenity.AQUAPARK, Amenity.KIDS_CLUB);
+        assertThat(result.intent().activities()).containsExactly(BeachActivity.DIVING);
+        assertThat(result.intent().access()).containsExactly(AccessNeed.SENIORS);
+        assertThat(result.intent().room()).containsExactly(RoomFeature.BABY_COT);
+        assertThat(result.intent().pets()).containsExactly(PetKind.DOG);
+        assertThat(result.intent().visaFreeOnly()).isTrue();
+        assertThat(result.intent().wildlife()).containsExactly(Wildlife.DOLPHINS);
+        assertThat(result.intent().diet()).containsExactly(DietNeed.HALAL);
+        assertThat(result.intent().transit()).containsExactly(new TransitConstraint(TransitKind.AIRPORT, 40));
     }
 
     private static LlmIntentPayload payload(String country, String city, Integer month, Integer nights,
                                             Long budget, Integer stars) {
-        return new LlmIntentPayload(country, city, month, null, nights, null, null, budget, "TOTAL", stars,
-                null, null, null, null, null, null, null);
+        return new LlmIntentPayload(country, null, city, month, null, nights, null, null, budget, "TOTAL", stars,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

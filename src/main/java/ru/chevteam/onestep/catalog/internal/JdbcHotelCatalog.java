@@ -4,6 +4,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import ru.chevteam.onestep.catalog.HotelCatalog;
 import ru.chevteam.onestep.catalog.HotelDetails;
+import ru.chevteam.onestep.catalog.MealAddonPrice;
 import ru.chevteam.onestep.catalog.Pricing;
 import ru.chevteam.onestep.catalog.RateQuote;
 
@@ -106,6 +107,19 @@ class JdbcHotelCatalog implements HotelCatalog {
                             total,
                             "RUB");
                 })
+                .optional();
+    }
+
+    @Override
+    public Optional<MealAddonPrice> mealAddon(UUID hotelId, String mealPlan) {
+        return jdbc.sql("""
+                        SELECT meal_plan, adult_price, child_price, child_free_under
+                          FROM meal_addon WHERE hotel_id = :hotelId AND meal_plan = :mealPlan
+                        """)
+                .param("hotelId", hotelId)
+                .param("mealPlan", mealPlan)
+                .query((rs, n) -> new MealAddonPrice(rs.getString("meal_plan"), rs.getBigDecimal("adult_price"),
+                        rs.getBigDecimal("child_price"), rs.getInt("child_free_under")))
                 .optional();
     }
 

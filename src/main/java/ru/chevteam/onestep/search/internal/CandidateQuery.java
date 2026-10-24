@@ -10,6 +10,7 @@ import java.util.UUID;
  */
 record CandidateQuery(
         String country,
+        String region,
         String city,
         Integer minStars,
         int adults,
@@ -21,8 +22,8 @@ record CandidateQuery(
         int limit) {
 
     /** Тот же запрос в другом направлении. Достопримечательность привязана к городу, поэтому снимается. */
-    CandidateQuery withDestination(String newCountry, String newCity) {
-        return new CandidateQuery(newCountry, newCity, minStars, adults, children, mealPlan, month,
+    CandidateQuery withDestination(String newCountry, String newRegion, String newCity) {
+        return new CandidateQuery(newCountry, newRegion, newCity, minStars, adults, children, mealPlan, month,
                 null, null, limit);
     }
 }

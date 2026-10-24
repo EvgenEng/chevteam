@@ -1,19 +1,28 @@
 package ru.chevteam.onestep.intent.rules;
 
+import ru.chevteam.onestep.intent.AccessNeed;
 import ru.chevteam.onestep.intent.Amenity;
+import ru.chevteam.onestep.intent.BeachActivity;
+import ru.chevteam.onestep.intent.BeachPreference;
 import ru.chevteam.onestep.intent.Budget;
 import ru.chevteam.onestep.intent.Destination;
+import ru.chevteam.onestep.intent.DietNeed;
 import ru.chevteam.onestep.intent.ExtractionResult;
 import ru.chevteam.onestep.intent.Guests;
 import ru.chevteam.onestep.intent.IntentExtractor;
 import ru.chevteam.onestep.intent.IntentSource;
 import ru.chevteam.onestep.intent.LocationFeature;
 import ru.chevteam.onestep.intent.MealPlan;
+import ru.chevteam.onestep.intent.PetKind;
 import ru.chevteam.onestep.intent.ProximityConstraint;
+import ru.chevteam.onestep.intent.RoomFeature;
 import ru.chevteam.onestep.intent.SearchIntent;
 import ru.chevteam.onestep.intent.SoftPreference;
 import ru.chevteam.onestep.intent.StayPeriod;
+import ru.chevteam.onestep.intent.TransitConstraint;
+import ru.chevteam.onestep.intent.TransitKind;
 import ru.chevteam.onestep.intent.TransportPreference;
+import ru.chevteam.onestep.intent.Wildlife;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -23,6 +32,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -108,16 +118,124 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
             Amenity.POOL, p("бассейн\\w*"),
             Amenity.KIDS_CLUB, p("детск\\w* клуб\\w*|аниматор\\w*|анимаци\\w*"),
             Amenity.SPA, p("\\bспа\\b|\\bspa\\b|саун\\w*|хаммам\\w*"),
-            Amenity.PARKING, p("парковк\\w*|паркинг\\w*"),
-            Amenity.GYM, p("фитнес\\w*|спортзал\\w*|тренаж\\w*"));
+            Amenity.MOTO_RENTAL, p("(?:прокат\\w*|аренд\\w*|взять)\\s+(?:\\p{L}+\\s+)?(?:мотобайк|байк|скутер|мопед|мотоцикл)\\w*"
+                    + "|покатат\\w*\\s+на\\s+(?:мотобайк|байк|скутер|мопед)\\w*|(?:байк|скутер|мопед)\\w*\\s+напрокат|напрокат\\s+(?:байк|скутер|мопед)\\w*"),
+            Amenity.CAR_RENTAL, p("(?:прокат\\w*|аренд\\w*|взять)\\s+(?:\\p{L}+\\s+)?(?:авто(?!бус)|машин|автомобил)\\w*"
+                    + "|(?:машин|авто(?!бус)|автомобил)\\w*\\s+напрокат|rent\\s*a\\s*car|каршеринг\\w*"),
+            Amenity.BIKE_RENTAL, p("велопрокат\\w*|(?:прокат\\w*|аренд\\w*)\\s+(?:велосипед|велик)\\w*|велосипед\\w*"),
+            Amenity.MOTO_PARKING, p("(?:парковк|стоянк|паркинг)\\w*\\s+(?:для\\s+)?(?:мото|байк|скутер)\\w*"
+                    + "|на\\s+(?:сво\\w*\\s+|личн\\w*\\s+)?(?:мотоцикл|мотобайк|байк)\\w*|мотопутешеств\\w*"),
+            Amenity.EV_CHARGING, p("зарядк\\w*\\s+(?:для\\s+)?электро\\w*|электромобил\\w*|электрокар\\w*|\\bтесл\\w*"),
+            Amenity.PARKING, p("парковк\\w*|паркинг\\w*|стоянк\\w* для (?:машин|авто)\\w*"),
+            Amenity.GYM, p("фитнес\\w*|спортзал\\w*|тренаж\\w*"),
+            Amenity.RESTAURANT, p("(?:\\bс|есть|сво\\w*)\\s+ресторан\\w*|ресторан\\w*\\s+(?:в|при)\\s+отел\\w*"),
+            Amenity.BAR, p("лобби-бар\\w*|\\bбар(?:ом|а|у|е|ы)?\\b"));
+
+    private static final Map<DietNeed, Pattern> DIET_PATTERNS = linkedMap(
+            DietNeed.HINDU, p("индуист\\w*(?:\\s+(?:кухн|еда|меню|питани)\\w*)?|\\bхинду\\w*|без говядины"
+                    + "|индийск\\w*\\s+(?:вегетарианск\\w*\\s+)?(?:кухн|еда|меню)\\w*"),
+            DietNeed.VEGAN, p("веган\\w*(?:\\s+(?:кухн|меню|еда|питани|блюд)\\w*)?|\\bvegan\\b"),
+            DietNeed.VEGETARIAN, p("вегетариан\\w*(?:\\s+(?:кухн|меню|еда|питани|блюд)\\w*)?|без мяса|постн\\w* меню"),
+            DietNeed.HALAL, p("халя[лль]\\w*|\\bhalal\\b|(?:мусульманск|исламск)\\w*\\s+(?:кухн|еда|питани|меню)\\w*"),
+            DietNeed.KOSHER, p("кошер\\w*(?:\\s+(?:кухн|еда|питани|меню)\\w*)?|\\bkosher\\b"),
+            DietNeed.GLUTEN_FREE, p("без\\s+глютен\\w*|безглютен\\w*(?:\\s+(?:кухн|еда|питани|меню)\\w*)?|целиаки\\w*"),
+            DietNeed.DIETARY, p("диетическ\\w*(?:\\s+(?:кухн|питани|меню|стол)\\w*)?|\\bдиет[аеуы]\\b|правильн\\w* питани\\w*"),
+            DietNeed.KIDS_MENU, p("детск\\w* меню"));
+
+    /** «Рядом кафе для завтрака», «вкусные кафешки поблизости», «где поужинать рядом». */
+    private static final String NEAR_WORD = "(?:рядом|поблизости|неподалеку|недалеко|вокруг|в шаговой доступности|в пешей доступности)";
+    private static final String EATERY = "(?:кафе\\w*|кафешк\\w*|кофейн\\w*|ресторан\\w*|столов\\w*|едальн\\w*|забегаловк\\w*)";
+    private static final String MEAL_TIME = "(?:\\s+(?:для|на)\\s+(?:завтрак|ужин|обед)\\w*(?:\\s+(?:и|или)\\s+(?:завтрак|ужин|обед)\\w*)?)?";
+    private static final Pattern FOOD_NEARBY = p(NEAR_WORD + "\\s+(?:(?:есть|были|много|хорош\\w*|вкусн\\w*|недорог\\w*)\\s+){0,2}" + EATERY + MEAL_TIME
+            + "|(?:(?:вкусн\\w*|хорош\\w*|недорог\\w*|уютн\\w*)\\s+){0,2}" + EATERY + MEAL_TIME + "\\s+" + NEAR_WORD
+            + "|где\\s+(?:вкусно\\s+)?(?:по)?(?:завтракать|ужинать|обедать|есть|поесть)\\s+" + NEAR_WORD
+            + "|(?:позавтракать|поужинать|пообедать|поесть)\\s+" + NEAR_WORD);
+
+    /** «На своей машине» — значит, нужна парковка. */
+    private static final Pattern OWN_CAR = p("\\b(?:на|своим|личн\\w*)\\s+(?:сво\\w*\\s+|личн\\w*\\s+)?(?:машин|авто(?!бус)|автомобил)\\w*");
+
+    private static final String TRANSIT_WORD = "(аэропорт\\w*|автовокзал\\w*|автостанци\\w*|(?:ж/?д\\s+|железнодорожн\\w*\\s+)?вокзал\\w*"
+            + "|(?:станци\\w*\\s+)?метро)";
+    private static final String DURATION = "(\\d{1,3}(?:[.,]5)?|полчаса|полтора|час|два|три|четыре|пять)(?:\\s*-?\\s*(минут\\w*|мин\\b|час\\w*|ч\\b))?";
+    private static final Pattern TRANSIT_MAX = p("\\b(?:до|от|из)\\s+" + TRANSIT_WORD + "\\s+(?:пешком\\s+|на машине\\s+|на такси\\s+|ехать\\s+)?"
+            + "(?:(?:не\\s+)?(?:больше|более|дольше|дальше)\\s+|максимум\\s+|в пределах\\s+|за\\s+|около\\s+|минут\\w*\\s+|до\\s+)?" + DURATION);
+    private static final Pattern TRANSIT_MINUTES_FIRST = p("\\b" + DURATION + "\\s+(?:езды\\s+|пути\\s+|пешком\\s+|на такси\\s+)?(?:до|от)\\s+" + TRANSIT_WORD);
+    private static final Pattern TRANSIT_NEAR = p("\\b(?:рядом с|близко к|недалеко от|возле|около|у самого|у)\\s+" + TRANSIT_WORD
+            + "|\\b(?:в шаговой|в пешей) доступности от\\s+" + TRANSIT_WORD);
+    private static final Pattern SHORT_TRANSFER = p("\\b(?:коротк\\w*|быстр\\w*|недолг\\w*)\\s+трансфер\\w*"
+            + "|трансфер\\w*\\s+(?:не\\s+)?(?:больше|более|дольше|до)?\\s*" + DURATION);
 
     private static final Map<SoftPreference, Pattern> SOFT_PATTERNS = linkedMap(
             SoftPreference.QUIET, p("\\bтих\\w*|\\bспокойн\\w*|без шума|не шумн\\w*"),
             SoftPreference.CLEAN, p("\\bчист\\w*"),
             SoftPreference.GOOD_WIFI, p("wi-?fi|вай-?фай|интернет\\w*"));
 
+    private static final Map<BeachPreference, Pattern> BEACH_PATTERNS = linkedMap(
+            BeachPreference.SANDY, p("песчан\\w*|\\bпес(?:ок|ка|ке|ком)\\b|песочн\\w*|без гальк\\w*|не галечн\\w*"),
+            BeachPreference.GENTLE_ENTRY, p("мелковод\\w*|мелк\\w* (?:мор\\w*|вод\\w*)|полог\\w* (?:вход\\w*|заход\\w*|берег\\w*|дн\\w*)"
+                    + "|плавн\\w* (?:вход\\w*|заход\\w*)|без (?:резк\\w* )?(?:глубин\\w*|обрыв\\w*)|неглубок\\w*"),
+            BeachPreference.NO_TIDES, p("отлив\\w*|прилив\\w*"),
+            BeachPreference.NO_JELLYFISH, p("медуз\\w*"),
+            BeachPreference.BEACH_FUN, p("развлечени\\w* на (?:пляж|мор)\\w*|водн\\w* (?:развлечени|аттракцион|вид\\w* спорт)\\w*"
+                    + "|банан\\w*|парасейл\\w*|гидроцикл\\w*|парашют\\w*"),
+            BeachPreference.UNCROWDED, p("немноголюдн\\w*|малолюдн\\w*|безлюдн\\w*|без толп\\w*|не многолюдн\\w*|пуст\\w* пляж\\w*"));
+
+    /** Порядок важен: «кайтсерфинг» должен стать кайтом, а не серфингом. */
+    private static final Map<BeachActivity, Pattern> ACTIVITY_PATTERNS = linkedMap(
+            BeachActivity.KITESURFING, p("\\bкайт\\w*"),
+            BeachActivity.WINDSURFING, p("\\bвинд\\w*"),
+            BeachActivity.SURFING, p("\\bс[еэ]рф\\w*|ловить волн\\w*"),
+            BeachActivity.DIVING, p("дайв\\w*|акваланг\\w*|понырять|\\bныря\\w*"),
+            BeachActivity.SNORKELING, p("снорк\\w*|маск\\w* (?:и|с) трубк\\w*|с маской"));
+
+    private static final Map<AccessNeed, Pattern> ACCESS_PATTERNS = linkedMap(
+            AccessNeed.WHEELCHAIR, p("инвалидн\\w* коляск\\w*|на коляске|колясочник\\w*|кресл\\w*-?\\s?каталк\\w*"),
+            AccessNeed.LIMITED_MOBILITY, p("плохо (?:хож\\w*|ход\\w*)|(?:трудно|тяжело) (?:ходить|передвигаться)|с трость\\w*|ходунк\\w*"
+                    + "|маломобильн\\w*|инвалид\\w*|ограниченн\\w* (?:возможност|подвижност|мобильност)\\w*|\\bовз\\b|без (?:ступен|лестниц)\\w*"),
+            AccessNeed.LOW_VISION, p("слабовидящ\\w*|незрячи\\w*|плохо (?:вижу|видит\\w*)|слаб\\w* зрени\\w*|\\bслеп\\w*"),
+            AccessNeed.SENIORS, p("пожил\\w*|бабушк\\w*|дедушк\\w*|пенсионер\\w*|преклонн\\w*"));
+
+    private static final Map<PetKind, Pattern> PET_PATTERNS = linkedMap(
+            PetKind.DOG, p("собак\\w*|собачк\\w*|\\bпс(?:ом|а|ы)\\b|\\bпес\\b|\\bщен\\w*|\\bпсин\\w*"),
+            PetKind.CAT, p("кошк\\w*|кошеч\\w*|\\bкот(?:ом|а|у|ик\\w*|ят\\w*|енк\\w*)?\\b"),
+            PetKind.SMALL_PET, p("хорьк\\w*|хорек\\w*|крыс\\w*|хомяк\\w*|хомячк\\w*|морск\\w* свинк\\w*|кролик\\w*|шиншилл\\w*|грызун\\w*"),
+            PetKind.BIRD, p("попуга\\w*|канарейк\\w*|\\bптиц\\w*"),
+            PetKind.REPTILE, p("\\bс(?:о свое\\w*)? черепахой\\b|черепашк\\w*|ящериц\\w*|игуан\\w*|рептили\\w*|змеей\\b|\\bзмея\\b"),
+            PetKind.OTHER, p("питомц\\w*|питомец|\\bс животн\\w*|домашн\\w* животн\\w*|зверюшк\\w*|зверьк\\w*|pet[- ]?friendly"));
+
+    private static final Map<RoomFeature, Pattern> ROOM_PATTERNS = linkedMap(
+            RoomFeature.BABY_COT, p("детск\\w* кроват\\w*|кроватк\\w*|манеж\\w*|люльк\\w*"),
+            RoomFeature.EXTRA_BED, p("доп\\w*\\.?\\s?(?:кроват|мест)\\w*|раскладушк\\w*"),
+            RoomFeature.WIFI_ROOM, p("(?:wi-?fi|вай-?фай|интернет\\w*) в номер\\w*"),
+            RoomFeature.AIR_CON, p("кондиционер\\w*|кондей\\w*"),
+            RoomFeature.KITCHEN, p("с кухн\\w*|кухн\\w* в номер\\w*|сво\\w* кухн\\w*|кухонн\\w*|мини-?кухн\\w*|готовить сам\\w*"),
+            RoomFeature.BALCONY, p("балкон\\w*|лоджи\\w*"),
+            RoomFeature.FRIDGE, p("холодильник\\w*"),
+            RoomFeature.KETTLE, p("чайник\\w*"),
+            RoomFeature.LAUNDRY, p("прачечн\\w*|стиральн\\w*|постирать|стирк\\w*"),
+            RoomFeature.AIRPORT_SHUTTLE, p("трансфер\\w*|шаттл\\w*|встрет\\w* в аэропорт\\w*"),
+            RoomFeature.RECEPTION_24H, p("круглосуточн\\w*|поздн\\w* заезд\\w*|ночн\\w* заезд\\w*|прилет\\w* ночью|ночью прилет\\w*|поздно прилет\\w*"));
+
+    /** Разбирается после животных-питомцев: «с черепахой» — питомец, «посмотреть на черепах» — дикая природа. */
+    private static final Map<Wildlife, Pattern> WILDLIFE_PATTERNS = linkedMap(
+            Wildlife.DOLPHINS, p("дельфин\\w*"),
+            Wildlife.SEA_TURTLES, p("черепах\\w*"),
+            Wildlife.WHALES, p("\\bкит(?:ов|ы|ами|а)\\b|горбат\\w* кит\\w*|косатк\\w*"),
+            Wildlife.MANTA_RAYS, p("\\bскат(?:ы|ов|ами|ом|а)?\\b|\\bмант(?:ы|а|ами|ой)?\\b"));
+
+    /** Разбирается после «первой линии»: «у моря» и «на пляже» — более сильное требование. */
+    private static final Pattern SEA = p("\\bна мор(?:е|я)\\b|\\bк морю\\b|\\bморе\\b|\\bморя\\b|\\bокеан\\w*|\\bпляжн\\w* отдых\\w*");
+
+    private static final Pattern VISA_FREE = p("без\\s?виз\\w*|безвиз\\w*|не нужна виза|виза не нужна|без оформления виз\\w*");
+
     private static final Map<LocationFeature, Pattern> LOCATION_PATTERNS = linkedMap(
             LocationFeature.FIRST_LINE, p("перв\\w* линии?|\\b1(?:-?й)? линии?|на берегу|у (?:самого )?моря|на пляже"),
+            LocationFeature.AWAY_FROM_TRAFFIC, p("(?:вдали|подальше|далеко) от (?:оживленн\\w* )?(?:дорог|трасс|магистрал|шоссе)\\w*"
+                    + "|без шума (?:машин|дорог|трафик)\\w*|не у (?:дороги|трассы)|без мотобайк\\w*"),
+            LocationFeature.CAR_ACCESS, p("подъехать на машин\\w*|подъезд\\w* (?:к отелю|на машин\\w*|до двери)|на (?:своей )?машин\\w*"
+                    + "|на авто\\b|до двери|с чемоданами"),
+            LocationFeature.SHOPPING, p("шо(?:п)?пинг\\w*|торгов\\w* центр\\w*|\\bтр?ц\\b|молл\\w*|гипермаркет\\w*|аутлет\\w*"
+                    + "|за покупками|икеа|ikea|магазин\\w*"),
             LocationFeature.CITY_CENTER, p("\\bв центре\\b|\\bцентр(?:е|а)?\\b"));
 
     private final Clock clock;
@@ -154,7 +272,13 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
                 })
                 .orElse(null));
 
+        List<TransitConstraint> transit = parseTransit(text);
         Set<LocationFeature> locationFeatures = EnumSet.noneOf(LocationFeature.class);
+        Matcher food = FOOD_NEARBY.matcher(text.value());
+        if (food.find()) {
+            locationFeatures.add(LocationFeature.FOOD_NEARBY);
+            text.consume(food.start(), food.end());
+        }
         List<ProximityConstraint> proximity = parseProximity(text, locationFeatures);
         Budget budget = ctx.track(IntentField.BUDGET, parseBudget(text, ctx));
         Integer minStars = ctx.track(IntentField.STARS, parseStars(text));
@@ -162,9 +286,36 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
         Guests guests = parseGuests(text, ctx);
 
         MealPlan mealPlan = ctx.track(IntentField.MEAL_PLAN, firstMatch(text, MEAL_PATTERNS).orElse(null));
-        Set<Amenity> amenities = allMatches(text, AMENITY_PATTERNS, Amenity.class);
+        Set<DietNeed> diet = wantedMatches(text, DIET_PATTERNS, DietNeed.class);
+        if (diet.contains(DietNeed.VEGAN) || diet.contains(DietNeed.HINDU)) {
+            diet.remove(DietNeed.VEGETARIAN);
+        }
+        Set<AccessNeed> access = allMatches(text, ACCESS_PATTERNS, AccessNeed.class);
+        Set<PetKind> pets = allMatches(text, PET_PATTERNS, PetKind.class);
+        if (pets.size() > 1) {
+            pets.remove(PetKind.OTHER);
+        }
+        Set<RoomFeature> room = allMatches(text, ROOM_PATTERNS, RoomFeature.class);
+        Set<Wildlife> wildlife = allMatches(text, WILDLIFE_PATTERNS, Wildlife.class);
+        Matcher visa = VISA_FREE.matcher(text.value());
+        boolean visaFree = visa.find();
+        if (visaFree) {
+            text.consume(visa.start(), visa.end());
+        }
+        Set<BeachActivity> activities = allMatches(text, ACTIVITY_PATTERNS, BeachActivity.class);
+        Set<BeachPreference> beach = allMatches(text, BEACH_PATTERNS, BeachPreference.class);
+        boolean ownCar = OWN_CAR.matcher(text.value()).find();
+        Set<Amenity> amenities = wantedMatches(text, AMENITY_PATTERNS, Amenity.class);
+        if (ownCar && !amenities.contains(Amenity.CAR_RENTAL)) {
+            amenities.add(Amenity.PARKING);
+        }
         Set<SoftPreference> soft = allMatches(text, SOFT_PATTERNS, SoftPreference.class);
         locationFeatures.addAll(allMatches(text, LOCATION_PATTERNS, LocationFeature.class));
+        Matcher sea = SEA.matcher(text.value());
+        if (sea.find() && !locationFeatures.contains(LocationFeature.FIRST_LINE)) {
+            beach.add(BeachPreference.SEA);
+            text.consume(sea.start(), sea.end());
+        }
 
         if (destination == null) {
             ctx.clarify(IntentField.DESTINATION,
@@ -175,7 +326,8 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
         }
 
         SearchIntent intent = new SearchIntent(destination, stay, guests, budget, minStars, mealPlan,
-                amenities, soft, locationFeatures, proximity, transport);
+                amenities, soft, locationFeatures, proximity, transport, beach, activities, access, room, pets, visaFree, wildlife,
+                diet, transit);
         return new RuleAnalysis(intent, ctx.explicit, ctx.assumptions, ctx.clarifications);
     }
 
@@ -192,6 +344,85 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
         }
         boolean direct = DIRECT_FLIGHT.matcher(text.value()).find();
         return origin == null && !direct ? null : new TransportPreference(origin, direct);
+    }
+
+    // ---------------------------------------------------------------- transit
+
+    /** Аэропорт, вокзал, метро: «до аэропорта не больше 40 минут», «рядом с метро», «короткий трансфер». */
+    private static List<TransitConstraint> parseTransit(WorkText text) {
+        Map<TransitKind, Integer> limits = new EnumMap<>(TransitKind.class);
+        Matcher m = TRANSIT_MAX.matcher(text.value());
+        while (m.find()) {
+            Integer minutes = minutes(m.group(2), m.group(3));
+            if (minutes != null) {
+                limits.merge(transitKind(m.group(1)), minutes, Math::min);
+                text.consume(m.start(), m.end());
+            }
+        }
+        m = TRANSIT_MINUTES_FIRST.matcher(text.value());
+        while (m.find()) {
+            Integer minutes = minutes(m.group(1), m.group(2));
+            if (minutes != null) {
+                limits.merge(transitKind(m.group(3)), minutes, Math::min);
+                text.consume(m.start(), m.end());
+            }
+        }
+        m = TRANSIT_NEAR.matcher(text.value());
+        while (m.find()) {
+            TransitKind kind = transitKind(m.group(1) != null ? m.group(1) : m.group(2));
+            limits.putIfAbsent(kind, switch (kind) {
+                case AIRPORT -> 40;
+                case METRO -> 10;
+                case RAIL, BUS -> 15;
+            });
+            text.consume(m.start(), m.end());
+        }
+        m = SHORT_TRANSFER.matcher(text.value());
+        if (m.find()) {
+            Integer minutes = m.group(1) != null ? minutes(m.group(1), m.group(2)) : null;
+            limits.merge(TransitKind.AIRPORT, minutes != null ? minutes : 45, Math::min);
+            text.consume(m.start(), m.end());
+        }
+        List<TransitConstraint> result = new ArrayList<>();
+        limits.forEach((kind, minutes) -> result.add(new TransitConstraint(kind, Math.max(1, Math.min(600, minutes)))));
+        return result;
+    }
+
+    private static TransitKind transitKind(String word) {
+        String w = word.strip();
+        if (w.startsWith("аэропорт")) {
+            return TransitKind.AIRPORT;
+        }
+        if (w.startsWith("автовокзал") || w.startsWith("автостанци")) {
+            return TransitKind.BUS;
+        }
+        return w.endsWith("метро") ? TransitKind.METRO : TransitKind.RAIL;
+    }
+
+    /** «40 минут», «1,5 часа», «полчаса», «два часа»; число без единиц до 5 — часы, больше — минуты. */
+    static Integer minutes(String amount, String unit) {
+        String a = amount.strip().replace(',', '.');
+        double value = switch (a) {
+            case "полчаса" -> 0.5;
+            case "полтора" -> 1.5;
+            case "час" -> 1;
+            case "два" -> 2;
+            case "три" -> 3;
+            case "четыре" -> 4;
+            case "пять" -> 5;
+            default -> Double.parseDouble(a);
+        };
+        boolean hours;
+        if (unit != null) {
+            hours = unit.startsWith("ч");
+        } else {
+            hours = switch (a) {
+                case "полчаса", "полтора", "час" -> true;
+                default -> value <= 5;
+            };
+        }
+        int result = (int) Math.round(hours ? value * 60 : value);
+        return result >= 1 && result <= 600 ? result : null;
     }
 
     // ---------------------------------------------------------------- proximity
@@ -491,6 +722,29 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
         return result;
     }
 
+    /** Как {@link #allMatches}, но «бар не нужен», «кошерное не обязательно», «не надо бассейн» не добавляются. */
+    private static <E extends Enum<E>> Set<E> wantedMatches(WorkText text, Map<E, Pattern> patterns, Class<E> type) {
+        Set<E> result = EnumSet.noneOf(type);
+        for (Map.Entry<E, Pattern> e : patterns.entrySet()) {
+            Matcher m = e.getValue().matcher(text.value());
+            while (m.find()) {
+                // смотрим в исходный текст: слова отрицания могли уже «съесть» другие правила
+                String before = text.original().substring(Math.max(0, m.start() - 16), m.start());
+                String after = text.original().substring(m.end(), Math.min(text.original().length(), m.end() + 30));
+                text.consume(m.start(), m.end());
+                if (NEGATED_BEFORE.matcher(before).find() || NEGATED_AFTER.matcher(after).find()) {
+                    continue;
+                }
+                result.add(e.getKey());
+                break;
+            }
+        }
+        return result;
+    }
+
+    private static final Pattern NEGATED_BEFORE = p("(?:\\bне нуж\\w*|\\bне надо|\\bне важн\\w*)\\s*$");
+    private static final Pattern NEGATED_AFTER = p("^\\s*(?:\\p{L}+\\s+)?(?:не нуж|не надо|не обязательн|не важн|ни к чему)");
+
     private static Pattern p(String regex) {
         return Pattern.compile(regex, FLAGS);
     }
@@ -533,9 +787,16 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
      */
     private static final class WorkText {
         private final StringBuilder buffer;
+        private final String original;
 
         WorkText(String text) {
             this.buffer = new StringBuilder(text);
+            this.original = text;
+        }
+
+        /** Текст до вычёркиваний — той же длины, позиции совпадают. */
+        String original() {
+            return original;
         }
 
         String value() {

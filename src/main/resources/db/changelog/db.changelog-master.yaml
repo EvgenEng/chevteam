@@ -47,3 +47,119 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: true
+  - changeSet:
+      id: 006-guide-and-reviews
+      author: chevteam
+      changes:
+        - sqlFile:
+            path: sql/006-guide-and-reviews.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 007-seed-destinations
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/007-seed-destinations.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 008-seed-guide
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/008-seed-guide.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 009-seed-reviews
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/009-seed-reviews.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 010-policies-and-entry
+      author: chevteam
+      changes:
+        - sqlFile:
+            path: sql/010-policies-and-entry.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 011-seed-more-hotels
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/011-seed-more-hotels.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 012-seed-policies
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/012-seed-policies.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 013-seed-reviews-more
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/013-seed-reviews-more.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 014-surroundings-and-wildlife
+      author: chevteam
+      changes:
+        - sqlFile:
+            path: sql/014-surroundings-and-wildlife.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 015-seed-surroundings
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/015-seed-surroundings.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 016-transport-dining-facilities
+      author: chevteam
+      changes:
+        - sqlFile:
+            path: sql/016-transport-dining-facilities.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 017-seed-transport-dining
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/017-seed-transport-dining.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true

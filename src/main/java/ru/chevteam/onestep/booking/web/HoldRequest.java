@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import ru.chevteam.onestep.booking.internal.HoldCommand;
 
@@ -19,9 +20,10 @@ public record HoldRequest(
         @Min(1) @Max(10) int adults,
         @Size(max = 6) List<@NotNull @Min(0) @Max(17) Integer> childrenAges,
         @NotBlank @Size(max = 200) String guestName,
-        @NotBlank @Email @Size(max = 200) String guestEmail) {
+        @NotBlank @Email @Size(max = 200) String guestEmail,
+        @Pattern(regexp = "BREAKFAST|HALF_BOARD|FULL_BOARD|ALL_INCLUSIVE") String mealUpgrade) {
 
     HoldCommand toCommand() {
-        return new HoldCommand(rateId, checkIn, nights, adults, childrenAges, guestName, guestEmail);
+        return new HoldCommand(rateId, checkIn, nights, adults, childrenAges, guestName, guestEmail, mealUpgrade);
     }
 }

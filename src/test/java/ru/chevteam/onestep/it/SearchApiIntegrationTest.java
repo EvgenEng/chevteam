@@ -89,9 +89,9 @@ class SearchApiIntegrationTest {
 
     @Test
     void cityWithoutHotelsFallsBackToCountry() throws Exception {
-        JsonNode body = search("Гуанчжоу на 4 ночи, двое взрослых");
-        assertThat(body.get("notice").asText()).contains("Гуанчжоу").contains("Китай");
-        assertThat(body.at("/hotels/0/city").asText()).isIn("Пекин", "Шанхай", "Санья");
+        JsonNode body = search("Абу-Даби на 4 ночи, двое взрослых");
+        assertThat(body.get("notice").asText()).contains("Абу-Даби").contains("ОАЭ");
+        assertThat(body.at("/hotels/0/city").asText()).isEqualTo("Дубай");
     }
 
     @Test
@@ -138,6 +138,176 @@ class SearchApiIntegrationTest {
     void correlationIdIsEchoed() throws Exception {
         mvc.perform(get("/actuator/health").header("X-Correlation-Id", "demo-123"))
                 .andExpect(header().string("X-Correlation-Id", "demo-123"));
+    }
+
+    // ------------------------------------------------------------------ регионы и новые направления
+
+    @Test
+    void crimeaRegionStaysInCrimeaAndPutsKidsBeachFirst() throws Exception {
+        JsonNode body = search("Крым в августе, двое взрослых и ребёнок 5 лет");
+
+        assertThat(body.get("notice").isNull()).as(body.toString()).isTrue();
+        assertThat(body.at("/understood/intent/destination/region").asText()).isEqualTo("Крым");
+        assertThat(body.get("hotels")).isNotEmpty().allSatisfy(h ->
+                assertThat(h.get("region").asText()).isEqualTo("Крым"));
+        assertThat(body.at("/hotels/0/city").asText()).isEqualTo("Евпатория");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "Выборг на выходные в июне    | Выборг",
+            "Кронштадт, 2 ночи            | Кронштадт",
+            "Брест, 3 ночи                | Брест",
+            "Гродно на 2 ночи             | Гродно",
+            "Самарканд в апреле           | Самарканд",
+            "Ереван на неделю             | Ереван",
+            "Сидней в январе              | Сидней",
+            "Калининград, 3 ночи          | Калининград",
+    })
+    void historicCitiesAndNewCountries(String query, String city) throws Exception {
+        JsonNode body = search(query);
+        assertThat(body.get("notice").isNull()).as(body.toString()).isTrue();
+        assertThat(body.at("/hotels/0/city").asText()).isEqualTo(city);
+        assertThat(body.at("/hotels/0/nearby")).isNotEmpty();
+    }
+
+    // ------------------------------------------------------------------ пляж, сезон, доступность
+
+    @Test
+    void beachPassportAndSeasonExplainTides() throws Exception {
+        JsonNode body = search("Бали в июле с ребёнком 4 лет, мелководье, двое взрослых");
+
+        JsonNode nusaDua = null;
+        for (JsonNode h : body.get("hotels")) {
+            if (h.get("name").asText().equals("Nusa Dua Lagoon Resort")) {
+                nusaDua = h;
+            }
+        }
+        assertThat(nusaDua).isNotNull();
+        assertThat(nusaDua.at("/beach/info/tides").asText()).isEqualTo("STRONG");
+        assertThat(nusaDua.at("/season/month").asInt()).isEqualTo(7);
+        assertThat(nusaDua.get("reasons").toString()).contains("отлив");
+        assertThat(body.at("/hotels/0/name").asText()).isNotEqualTo("Nusa Dua Lagoon Resort");
+    }
+
+    @Test
+    void wheelchairUserGetsAccessibleHotelAndBeach() throws Exception {
+        JsonNode body = search("Сочи в июле, папа на инвалидной коляске");
+
+        assertThat(body.at("/hotels/0/name").asText()).isEqualTo("Имеретинский Берег");
+        assertThat(body.at("/hotels/0/accessibility/accessibleRoom").asBoolean()).isTrue();
+        assertThat(body.at("/hotels/0/beach/info/accessible").asBoolean()).isTrue();
+    }
+
+    @Test
+    void activityOutOfSeasonIsExplained() throws Exception {
+        JsonNode body = search("Боракай в июле, кайтсерфинг");
+        assertThat(body.get("hotels").toString()).contains("Кайтсёрфинг");
+    }
+
+    // ------------------------------------------------------------------ животные, условия, визы, Китай
+
+    @Test
+    void petFriendlyHotelsAndPolicies() throws Exception {
+        JsonNode body = search("Москва на 3 ночи с собакой, двое взрослых");
+
+        assertThat(body.at("/hotels/0/policies/pets/allowed").toString()).contains("DOG");
+        assertThat(body.at("/hotels/0/policies/checkInFrom").asText()).matches("\\d{2}:\\d{2}");
+        assertThat(body.at("/hotels/0/policies/features")).isNotEmpty();
+        assertThat(body.at("/hotels/0/entry/regime").asText()).isEqualTo("DOMESTIC");
+    }
+
+    @Test
+    void longStayBeyondVisaFreeLimitIsFlagged() throws Exception {
+        JsonNode body = search("Пхукет на 40 ночей, двое взрослых");
+        assertThat(body.at("/hotels/0/entry/maxDays").asInt()).isEqualTo(30);
+        assertThat(body.at("/hotels/0/reasons").toString()).contains("понадобится виза");
+    }
+
+    @Test
+    void visaFreeWithoutDestinationPrefersVisaFreeCountries() throws Exception {
+        JsonNode body = search("Куда без визы на море в декабре, двое взрослых");
+        assertThat(body.get("hotels")).isNotEmpty().allSatisfy(h ->
+                assertThat(h.at("/entry/regime").asText()).isNotEqualTo("VISA_REQUIRED"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "Чэнду в октябре на 5 ночей   | Чэнду",
+            "Сиань, 3 ночи                | Сиань",
+            "Чжанцзяцзе, 2 ночи           | Чжанцзяцзе",
+            "Ханчжоу на выходные          | Ханчжоу",
+            "Харбин в январе              | Харбин",
+            "Махачкала, 4 ночи            | Махачкала",
+            "Новосибирск, 2 ночи          | Новосибирск",
+    })
+    void newCities(String query, String city) throws Exception {
+        JsonNode body = search(query);
+        assertThat(body.get("notice").isNull()).as(body.toString()).isTrue();
+        assertThat(body.at("/hotels/0/city").asText()).isEqualTo(city);
+    }
+
+    // ------------------------------------------------------------------ дельфины, дороги, шопинг
+
+    @Test
+    void dolphinsInCrimeaInSummer() throws Exception {
+        JsonNode body = search("Крым в августе, хочу увидеть дельфинов, двое взрослых");
+        assertThat(body.at("/hotels/0/wildlife").toString()).contains("DOLPHINS");
+        assertThat(body.at("/hotels/0/reasons").toString()).contains("Дельфины");
+    }
+
+    @Test
+    void shoppingNextToHotel() throws Exception {
+        JsonNode body = search("Бангкок на 3 ночи, торговый центр рядом");
+        assertThat(body.at("/hotels/0/reasons").toString()).contains("мин пешком");
+        assertThat(body.at("/hotels/0/surroundings/roadNoise").asText()).isNotBlank();
+    }
+
+    @Test
+    void islandWithoutCarsIsExplained() throws Exception {
+        JsonNode body = search("Сямынь, 3 ночи, приедем на машине");
+        assertThat(body.at("/hotels/0/surroundings/carAccess").asText()).isEqualTo("DOOR");
+    }
+
+    // ------------------------------------------------------------------ отзывы и гид
+
+    @Test
+    void reviewsCanBeFilteredByTripType() throws Exception {
+        String id = search("Турция, всё включено, аквапарк, двое взрослых и ребёнок 7 лет").at("/hotels/0/hotelId").asText();
+
+        MvcResult result = mvc.perform(get("/api/v1/hotels/{id}/reviews", id).param("tripType", "FAMILY").param("sort", "BEST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.demo").value(true))
+                .andReturn();
+        JsonNode page = json.readTree(result.getResponse().getContentAsByteArray());
+
+        assertThat(page.at("/summary/count").asInt()).isEqualTo(page.get("total").asInt());
+        assertThat(page.get("items")).allSatisfy(r -> assertThat(r.get("tripType").asText()).isEqualTo("FAMILY"));
+        assertThat(page.at("/summary/byTripType").size()).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    void beachPassportAndBeachReviews() throws Exception {
+        String beachId = search("Пхукет, Ката, двое").at("/hotels/0/beach/info/id").asText();
+        mvc.perform(get("/api/v1/beaches/{id}", beachId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.surface").isNotEmpty());
+        mvc.perform(get("/api/v1/beaches/{id}/reviews", beachId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isNotEmpty());
+    }
+
+    @Test
+    void seasonEndpointReturnsHazards() throws Exception {
+        mvc.perform(get("/api/v1/guide/season").param("country", "Австралия").param("city", "Кэрнс").param("month", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hazards[0].kind").isNotEmpty());
+    }
+
+    @Test
+    void reviewsOfUnknownHotelAre404() throws Exception {
+        mvc.perform(get("/api/v1/hotels/{id}/reviews", UUID.randomUUID()))
+                .andExpect(status().isNotFound());
     }
 
     private JsonNode search(String query) throws Exception {

@@ -8,6 +8,7 @@ import java.util.List;
  */
 public record LlmIntentPayload(
         String country,
+        String region,
         String city,
         Integer month,
         String checkIn,
@@ -23,8 +24,21 @@ public record LlmIntentPayload(
         List<String> locationFeatures,
         List<Landmark> landmarks,
         String originCity,
-        Boolean directFlightPreferred) {
+        Boolean directFlightPreferred,
+        List<String> beachPreferences,
+        List<String> activities,
+        List<String> accessNeeds,
+        List<String> roomFeatures,
+        List<String> pets,
+        Boolean visaFreeOnly,
+        List<String> wildlife,
+        List<String> diet,
+        List<Transit> transit) {
 
     public record Landmark(String name, Integer maxWalkMinutes) {
+    }
+
+    /** «До аэропорта не больше 40 минут». */
+    public record Transit(String kind, Integer maxMinutes) {
     }
 }

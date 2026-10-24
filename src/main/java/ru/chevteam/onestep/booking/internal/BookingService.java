@@ -12,10 +12,13 @@ import ru.chevteam.onestep.booking.BookingExpired;
 import ru.chevteam.onestep.booking.BookingView;
 import ru.chevteam.onestep.booking.PaymentMethod;
 import ru.chevteam.onestep.catalog.HotelCatalog;
+import ru.chevteam.onestep.catalog.MealAddonPrice;
+import ru.chevteam.onestep.catalog.Pricing;
 import ru.chevteam.onestep.catalog.RateQuote;
 import ru.chevteam.onestep.shared.error.BusinessRuleException;
 import ru.chevteam.onestep.shared.error.NotFoundException;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -67,7 +70,7 @@ public class BookingService {
         }
 
         inventory.reserve(cmd.rateId(), cmd.checkIn(), cmd.checkIn().plusDays(cmd.nights()));
-        Booking booking = Booking.hold(cmd, PricedRate.of(quote), uniqueReference(), now, props.holdTtl());
+        Booking booking = Booking.hold(cmd, withMeal(PricedRate.of(quote), cmd), uniqueReference(), now, props.holdTtl());
         bookings.save(booking);
 
         meters.counter("onestep.booking.transitions", "to", "HELD").increment();
@@ -151,6 +154,18 @@ public class BookingService {
     @Transactional(readOnly = true)
     public List<BookingView> findByGuestEmail(String email) {
         return bookings.findByGuestEmail(email.strip()).stream().map(Booking::toView).toList();
+    }
+
+    /** Питание, добавленное к тарифу, — цена считается на сервере по тому же правилу, что и в выдаче. */
+    private PricedRate withMeal(PricedRate rate, HoldCommand cmd) {
+        if (cmd.mealUpgrade() == null || cmd.mealUpgrade().equals(rate.mealPlan())) {
+            return rate;
+        }
+        MealAddonPrice addon = catalog.mealAddon(rate.hotelId(), cmd.mealUpgrade())
+                .orElseThrow(() -> new BusinessRuleException("К этому тарифу нельзя добавить выбранное питание"));
+        BigDecimal extra = Pricing.mealAddonTotal(addon.adultPerNight(), addon.childPerNight(), addon.childFreeUnder(),
+                cmd.adults(), cmd.childrenAges(), cmd.nights());
+        return rate.withMeal(addon.mealPlan(), extra);
     }
 
     private void validateStay(HoldCommand cmd) {

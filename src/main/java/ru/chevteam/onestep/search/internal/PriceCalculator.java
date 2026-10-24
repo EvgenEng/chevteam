@@ -21,6 +21,6 @@ final class PriceCalculator {
         }
         BigDecimal perNight = Pricing.nightPrice(basePricePerNight, seasonCoefficient);
         BigDecimal total = perNight.multiply(BigDecimal.valueOf(nights));
-        return new PriceQuote(total, perNight, nights, "RUB");
+        return new PriceQuote(total, perNight, nights, "RUB", null, null);
     }
 }

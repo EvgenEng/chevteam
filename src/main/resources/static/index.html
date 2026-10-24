@@ -129,7 +129,8 @@
   button.book:hover { background: var(--sea); }
   dialog.booking { border: 2px solid var(--ink); border-radius: var(--radius-lg); padding: 0; width: min(560px, calc(100vw - 32px)); color: var(--ink); box-shadow: 8px 8px 0 var(--ink); }
   dialog.booking::backdrop { background: rgba(18, 34, 61, .45); }
-  .dlg { padding: 22px; display: grid; gap: 14px; }
+  .dlg { padding: 22px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .field input, .field select { min-width: 0; width: 100%; box-sizing: border-box; }
   .dlg h2 { font: 700 20px/1.2 "Unbounded", sans-serif; margin: 0; }
   .dlg .sub { color: var(--muted); margin: -8px 0 0; font-size: 14px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -156,6 +157,76 @@
   @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
   .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   footer { color: var(--muted); font-size: 13px; padding: 0 0 30px; }
+
+  /* Подробности на карточке: пляж, сезон, рядом, доступность */
+  .facts { display: grid; gap: 8px; margin: 0 0 12px; }
+  details.fact { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); }
+  details.fact > summary { cursor: pointer; list-style: none; padding: 9px 12px; font-size: 15px; display: flex; gap: 8px; align-items: baseline; }
+  details.fact > summary::-webkit-details-marker { display: none; }
+  details.fact > summary::after { content: "+"; margin-left: auto; color: var(--muted); font-weight: 700; }
+  details.fact[open] > summary::after { content: "−"; }
+  details.fact > summary b { font-weight: 600; }
+  details.fact > summary .sum-sub { color: var(--muted); font-size: 14px; }
+  .fact-body { padding: 0 12px 12px; font-size: 14px; display: grid; gap: 8px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .tags li { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+  .tags li.good { border-color: #B9DCC8; background: #E6F3EC; color: var(--ok); }
+  .tags li.bad { border-color: #F1C9C5; background: #FBEAE8; color: var(--miss); }
+  .flag { font-weight: 600; }
+  .flag.yes { color: var(--ok); }
+  .flag.no { color: var(--miss); }
+  .hazards { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .hazards li { padding-left: 22px; position: relative; }
+  .hazards li::before { content: "!"; position: absolute; left: 4px; font-weight: 700; color: var(--part); }
+  .hazards li.HIGH::before { color: var(--miss); }
+  .hazards li.LOW::before { color: var(--muted); }
+  .places { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .places li { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+  .places .kind { color: var(--muted); font-size: 12px; }
+  .places .walk { white-space: nowrap; font-weight: 600; }
+  .places .walk.taxi { color: var(--muted); font-weight: 500; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; }
+  .tag { font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+  .tag.on { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+  .feat { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 14px; }
+  .feat li { padding-left: 20px; position: relative; }
+  .feat li::before { position: absolute; left: 0; font-weight: 700; }
+  .feat li.yes::before { content: "✓"; color: var(--ok); }
+  .feat li.no { color: var(--muted); }
+  .feat li.no::before { content: "✕"; color: var(--miss); }
+  .feat small { color: var(--muted); }
+  .visa { display: inline-block; font-size: 13px; font-weight: 600; border-radius: 999px; padding: 2px 10px; margin-left: 6px; border: 1px solid; vertical-align: 1px; }
+  .visa.ok { color: var(--ok); border-color: #B9DCC8; background: #E6F3EC; }
+  .visa.mid { color: var(--part); border-color: #EBD3A6; background: #FBF2E1; }
+  .visa.bad { color: var(--miss); border-color: #F1C9C5; background: #FBEAE8; }
+
+  /* Отзывы */
+  dialog.reviews { border: 2px solid var(--ink); border-radius: var(--radius-lg); padding: 0; width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 40px); color: var(--ink); box-shadow: 8px 8px 0 var(--ink); }
+  dialog.reviews::backdrop { background: rgba(18, 34, 61, .45); }
+  .rv-head { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .rv-avg { font: 700 34px/1 "Unbounded", sans-serif; }
+  .rv-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rv-filters button { font: 500 13px/1 "Onest", sans-serif; border: 1.5px solid var(--line); background: #fff; color: var(--ink); border-radius: 999px; padding: 8px 12px; cursor: pointer; }
+  .rv-filters button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: #fff; }
+  .rv-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .rv-item { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 4px; font-size: 15px; }
+  .rv-item header { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; padding: 0; }
+  .rv-item .who { color: var(--muted); font-size: 13px; }
+  .rv-score { font: 700 14px/1 "Unbounded", sans-serif; background: var(--ink); color: #fff; border-radius: 6px; padding: 4px 6px; }
+  .rv-item p { margin: 0; }
+  .rv-item .pro::before { content: "+ "; color: var(--ok); font-weight: 700; }
+  .rv-item .con::before { content: "− "; color: var(--miss); font-weight: 700; }
+  @media (max-width: 600px) {
+    .hotel { grid-template-columns: 1fr; gap: 10px; padding: 14px; }
+    .score { display: flex; align-items: center; gap: 10px; text-align: left; }
+    .score strong { font-size: 22px; }
+    .score .meter { flex: 1; margin-top: 0; }
+    .kv { grid-template-columns: minmax(96px, max-content) 1fr; gap: 4px 10px; }
+    .rv-head .field { margin-left: 0 !important; width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -179,6 +250,18 @@
       <li><button type="button">Хочу в Турцию на 10 дней в мае, всё включено, отель с аквапарком, двое взрослых и ребёнок 7 лет, до 80 тысяч. Лечу из Москвы, можно с пересадкой но лучше прямой.</button></li>
       <li><button type="button">Ищу отель в Сочи на 7 дней в сентябре, 4 звезды, на первой линии, с завтраком, бюджет до 50 тысяч. Один еду.</button></li>
       <li><button type="button">Куда сходить в Питере на 2 ночи в выходные в январе? Центр, до Эрмитажа пешком минут 15, чисто, тихо, хороший Wi-Fi. До 8000 за двое суток.</button></li>
+      <li><button type="button">Бали в июле, двое взрослых и ребёнок 4 лет, песчаный пляж и мелководье, без сильных отливов</button></li>
+      <li><button type="button">Крым в августе, без медуз, двое взрослых и ребёнок 5 лет, до 90 тысяч</button></li>
+      <li><button type="button">Сочи в июле с пожилыми родителями, папа на инвалидной коляске</button></li>
+      <li><button type="button">Чэнду в октябре на 5 ночей, двое взрослых, хочу к пандам</button></li>
+      <li><button type="button">Куда без визы на море в декабре, двое взрослых</button></li>
+      <li><button type="button">Москва на 3 ночи с собакой, нужна детская кроватка</button></li>
+      <li><button type="button">Крым в августе, хочу увидеть дельфинов, двое взрослых</button></li>
+      <li><button type="button">Бангкок на 3 ночи, торговый центр рядом, подальше от шумной дороги</button></li>
+      <li><button type="button">Питер на 3 ночи, рядом с метро, до аэропорта не больше 40 минут, халяль</button></li>
+      <li><button type="button">Сочи в августе на 7 ночей, полупансион, двое взрослых и дети 3 и 9 лет, кафе рядом</button></li>
+      <li><button type="button">Пхукет в декабре, аренда байка, бассейн и бар</button></li>
+      <li><button type="button">Калининград на своей машине в июне, вегетарианское меню, прокат велосипедов</button></li>
     </ul>
   </section>
 
@@ -190,8 +273,9 @@
   </section>
 
   <dialog class="booking" id="booking" aria-labelledby="bk-title"></dialog>
+  <dialog class="reviews" id="reviews" aria-labelledby="rv-title"></dialog>
 
-  <footer>Демо для хакатона Островка, команда ChevTeam. Отели в каталоге вымышленные, районы и достопримечательности — настоящие.</footer>
+  <footer>Демо для хакатона Островка, команда ChevTeam. Отели в каталоге и отзывы о них вымышленные. Районы, пляжи и достопримечательности настоящие, а климат и сезонные риски — ориентиры, а не гарантия.</footer>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -209,6 +293,55 @@
   const rub = n => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(n) + ' ₽';
   const nightsWord = n => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? 'ночь' : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? 'ночи' : 'ночей'; };
   const MEALS = { ROOM_ONLY: 'Без питания', BREAKFAST: 'Завтрак', HALF_BOARD: 'Полупансион', FULL_BOARD: 'Полный пансион', ALL_INCLUSIVE: 'Всё включено' };
+  const SURFACE = { WHITE_SAND: 'белый песок', GOLDEN_SAND: 'золотистый песок', DARK_SAND: 'тёмный вулканический песок', CORAL_SAND: 'коралловый песок',
+    SHELL_SAND: 'песок с ракушкой', MIXED: 'песок с мелкой галькой', FINE_PEBBLE: 'мелкая галька', COARSE_PEBBLE: 'крупная галька', ROCKY: 'камни и плиты' };
+  const ENTRY = { GENTLE: 'пологий', MODERATE: 'умеренный уклон', STEEP: 'крутой, глубоко у берега', PONTOON: 'с понтона' };
+  const TIDES = { NONE: 'почти незаметны', MODERATE: 'умеренные', STRONG: 'сильные — смотрите таблицу приливов' };
+  const CROWD = { LOW: 'немноголюдно', MEDIUM: 'умеренно людно', HIGH: 'многолюдно' };
+  const ACTIVITY = { SURFING: 'серфинг', KITESURFING: 'кайтсёрфинг', WINDSURFING: 'виндсёрфинг', DIVING: 'дайвинг', SNORKELING: 'снорклинг' };
+  const RAIN = { DRY: 'сухо', LOW: 'редкие дожди', MODERATE: 'бывают дожди', HEAVY: 'сезон дождей' };
+  const WAVES = { CALM: 'спокойное', MODERATE: 'небольшие волны', HIGH: 'сильные волны' };
+  const COMFORT = { COLD: 'холодно', COOL: 'свежо', MILD: 'прохладно', COMFORT: 'комфортно', RAINY: 'тепло, но дождливо', HOT: 'жарко', EXHAUSTING: 'изнуряющая жара' };
+  const HAZARD = { JELLYFISH: 'Медузы', MOSQUITO: 'Комары и мошка', TICK: 'Клещи', RIP_CURRENT: 'Волны и течения', TYPHOON: 'Тайфуны и штормы',
+    ALGAE: 'Цветение воды', SEA_URCHIN: 'Морские ежи и кораллы', HEAT: 'Жара', COLD_WATER: 'Холодная вода', SMOKE: 'Дымка', SEAWEED: 'Водоросли',
+    DEBRIS: 'Мусор на пляжах', CROCODILE: 'Крокодилы', SANDFLY: 'Песчаные мошки' };
+  const SEVERITY = { LOW: 'изредка', MEDIUM: 'бывает', HIGH: 'сильно мешает' };
+  const PLACE = { SIGHT: 'достопримечательность', MUSEUM: 'музей', PARK: 'парк', NATURE: 'природа', VIEWPOINT: 'смотровая', PROMENADE: 'прогулка',
+    FOOD: 'еда и рынки', SHOPPING: 'шопинг' };
+  const TERRAIN = { FLAT: 'ровный', HILLY: 'холмистый, будут подъёмы', STEEP: 'крутые подъёмы и лестницы' };
+  const TRIP = { FAMILY: 'Семьи с детьми', COUPLE: 'Пары', SOLO: 'Соло', FRIENDS: 'С друзьями', SENIORS: 'С пожилыми', BUSINESS: 'По работе' };
+  const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const meters = m => m < 1000 ? m + ' м' : (m / 1000).toFixed(1).replace('.', ',') + ' км';
+  const yesNo = v => v ? '<span class="flag yes">да</span>' : '<span class="flag no">нет</span>';
+  const plural = (n, one, few, many) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? one : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? few : many; };
+  const SLOW_NEEDS = ['WHEELCHAIR', 'LIMITED_MOBILITY', 'SENIORS'];
+  const FEATURE = { WIFI_ROOM: 'Wi‑Fi в номере', BABY_COT: 'Детская кроватка', EXTRA_BED: 'Доп. кровать', AIR_CON: 'Кондиционер',
+    KITCHEN: 'Кухня', BALCONY: 'Балкон', FRIDGE: 'Холодильник', KETTLE: 'Чайник', LAUNDRY: 'Стирка', AIRPORT_SHUTTLE: 'Трансфер из аэропорта',
+    RECEPTION_24H: 'Круглосуточная стойка' };
+  const PET = { DOG: 'собаки', CAT: 'кошки', SMALL_PET: 'хорьки, крысы, хомяки', BIRD: 'птицы', REPTILE: 'черепахи и рептилии', OTHER: 'питомцы' };
+  const WILDLIFE = { DOLPHINS: '🐬 Дельфины', SEA_TURTLES: '🐢 Морские черепахи', WHALES: '🐋 Киты', MANTA_RAYS: 'Скаты-манты' };
+  const VIEWING = { SHORE: 'с берега', BOAT: 'с лодки или яхты', SNORKEL: 'при снорклинге' };
+  const CHANCE = { LOW: 'изредка', MEDIUM: 'часто', HIGH: 'почти всегда' };
+  const NOISE = { LOW: 'тихо', MEDIUM: 'городская улица', HIGH: 'оживлённая дорога' };
+  const CAR = { DOOR: 'машина к входу', NEARBY: 'высадка рядом', PEDESTRIAN: 'пешеходная зона', BOAT: 'только по воде' };
+  const DIET = { VEGETARIAN: 'вегетарианское', VEGAN: 'веганское', HALAL: 'халяль', KOSHER: 'кошерное', HINDU: 'индийское вегетарианское',
+    GLUTEN_FREE: 'без глютена', DIETARY: 'диетическое', KIDS_MENU: 'детское меню' };
+  const FACILITY = { POOL: '🏊 Бассейн', GYM: '🏋 Спортзал', SPA: '💆 СПА', RESTAURANT: '🍽 Ресторан', BAR: '🍸 Бар', PARKING: '🅿 Парковка',
+    MOTO_PARKING: '🏍 Место для мотоцикла', EV_CHARGING: '🔌 Зарядка электромобиля', BIKE_RENTAL: '🚲 Прокат велосипедов',
+    MOTO_RENTAL: '🛵 Прокат скутеров и байков', CAR_RENTAL: '🚙 Прокат авто' };
+  const FACILITY_ORDER = ['POOL', 'GYM', 'SPA', 'RESTAURANT', 'BAR', 'PARKING', 'MOTO_PARKING', 'EV_CHARGING', 'BIKE_RENTAL', 'MOTO_RENTAL', 'CAR_RENTAL'];
+  const TRANSIT = { AIRPORT: '✈', RAIL: '🚆', METRO: 'Ⓜ', BUS: '🚌' };
+  const MODE = { WALK: 'пешком', TAXI: 'на такси', TRAIN: 'поездом', BUS: 'на автобусе', BOAT: 'на катере', SHUTTLE: 'трансфером отеля' };
+  const MEAL_TIME = { BREAKFAST: 'завтраки', LUNCH: 'обеды', DINNER: 'ужины' };
+  const PLAN_ORDER = ['ROOM_ONLY', 'BREAKFAST', 'HALF_BOARD', 'FULL_BOARD', 'ALL_INCLUSIVE'];
+  const duration = m => m < 60 ? m + ' мин' : (() => { let h = Math.floor(m / 60), r = Math.round((m % 60) / 5) * 5; if (r === 60) { h++; r = 0; } return h + ' ч' + (r ? ' ' + r + ' мин' : ''); })();
+  const addonTotal = (a, adults, kids, nights) =>
+    (Number(a.adultPerNight) * adults + Number(a.childPerNight) * kids.filter(k => k >= a.childFreeUnder).length) * nights;
+  const monthsShort = ms => ms.length === 12 ? 'круглый год' : ms.map(m => MONTHS[m - 1].slice(0, 3)).join(', ');
+  const VISA_CLASS = { DOMESTIC: 'ok', VISA_FREE: 'ok', PRE_AUTHORIZATION: 'mid', VISA_ON_ARRIVAL: 'mid', E_VISA: 'bad', VISA_REQUIRED: 'bad' };
+  const VISA_SHORT = { DOMESTIC: 'по России', VISA_FREE: 'без визы', PRE_AUTHORIZATION: 'эл. разрешение', VISA_ON_ARRIVAL: 'виза по прилёте',
+    E_VISA: 'эл. виза', VISA_REQUIRED: 'нужна виза' };
 
   document.querySelectorAll('.examples button').forEach(b => b.addEventListener('click', () => {
     q.value = b.textContent.trim(); form.requestSubmit();
@@ -255,15 +388,21 @@
       drawMap([]);
       return;
     }
-    list.innerHTML = data.hotels.map((h, i) => card(h, i)).join('');
+    list.innerHTML = data.hotels.map((h, i) => card(h, i, u.intent)).join('');
     list.querySelectorAll('[data-rates]').forEach(btn => btn.addEventListener('click', () => toggleRates(btn)));
     list.querySelectorAll('[data-book]').forEach(btn => btn.addEventListener('click', () => openBooking(data.hotels[+btn.dataset.book], u.intent)));
+    list.querySelectorAll('button.ghost[data-reviews]').forEach(btn => btn.addEventListener('click', () =>
+      openReviews(btn.dataset.kind, btn.dataset.reviews, btn.dataset.title, u.intent)));
     drawMap(data.hotels);
   }
 
-  function card(h, i) {
-    const nearby = h.nearby.length
-      ? `<p class="nearby">Рядом: ${h.nearby.map(p => `${esc(p.name)} — ${p.walkMinutes} мин`).join(', ')}</p>` : '';
+  function card(h, i, intent) {
+    const slow = (intent.access || []).some(a => SLOW_NEEDS.includes(a));
+    const facts = [beachFact(h), wildlifeFact(h), seasonFact(h), nearbyFact(h, slow), transportFact(h, intent), roadFact(h),
+      diningFact(h, intent), facilityFact(h, intent), policyFact(h, intent), entryFact(h), accessFact(h, intent)]
+      .filter(Boolean).join('');
+    const visa = h.entry ? `<span class="visa ${VISA_CLASS[h.entry.regime]}" title="${esc(h.entry.summary)}">🛂 ${esc(VISA_SHORT[h.entry.regime])}${
+      h.entry.maxDays && h.entry.regime !== 'DOMESTIC' ? ' до ' + h.entry.maxDays + ' дн.' : ''}</span>` : '';
     return `
       <article class="hotel${i === 0 ? ' top' : ''}" id="h-${h.hotelId}">
         <div class="score" aria-label="Совпадение с запросом ${h.matchPercent} процентов">
@@ -274,14 +413,16 @@
           <h2>${esc(h.name)}</h2>
           <p class="meta"><span class="stars" aria-label="${h.stars} звёзд">${'★'.repeat(h.stars)}</span>
             ${esc(h.city)}${h.district ? ', ' + esc(h.district) : ''},
-            <span class="rating">${h.rating}</span> по ${h.reviewsCount} отзывам</p>
+            <span class="rating">${h.rating}</span> по ${h.reviewsCount} отзывам${visa}</p>
           <p class="desc">${esc(h.description)}</p>
           <ul class="reasons">${h.reasons.map(r => `<li class="${r.kind}">${esc(r.text)}</li>`).join('')}</ul>
-          ${nearby}
+          ${facts ? `<div class="facts">${facts}</div>` : ''}
           <div class="foot">
             <div class="price"><strong>${rub(h.price.total)}</strong>
-              <small>за ${h.price.nights} ${nightsWord(h.price.nights)}, ${rub(h.price.perNight)} в сутки · ${esc(h.roomName)}, ${esc(MEALS[h.mealPlan] || h.mealPlan)}</small></div>
+              <small>за ${h.price.nights} ${nightsWord(h.price.nights)}, ${rub(h.price.perNight)} в сутки · ${esc(h.roomName)}, ${esc(MEALS[h.mealPlan] || h.mealPlan)}${
+                h.price.mealAdded ? ` · доплата за ${esc((MEALS[h.price.mealAdded] || '').toLowerCase())} ${rub(h.price.mealAddedTotal)} уже в цене` : ''}</small></div>
             <div class="actions">
+              <button class="ghost" type="button" data-reviews="${h.hotelId}" data-kind="hotels" data-title="${esc(h.name)}">Отзывы</button>
               <button class="ghost" type="button" data-rates="${h.hotelId}" aria-expanded="false">Все тарифы</button>
               <button class="book" type="button" data-book="${i}">Забронировать</button>
             </div>
@@ -289,6 +430,334 @@
         </div>
       </article>`;
   }
+
+  function beachFact(h) {
+    if (!h.beach) return '';
+    const b = h.beach.info;
+    const acts = b.activities.map(a => {
+      const months = b.activitySeasons[a];
+      return `<li>${esc(ACTIVITY[a] || a)}${months && months.length && months.length < 12 ? ' · ' + months.map(m => MONTHS[m - 1].slice(0, 3)).join(', ') : ''}</li>`;
+    }).join('');
+    const fun = b.entertainment.map(e => `<li>${esc(e)}</li>`).join('');
+    return `
+      <details class="fact">
+        <summary><span aria-hidden="true">🏖</span><b>${esc(b.name)}</b><span class="sum-sub">${meters(h.beach.distanceMeters)}, ≈${h.beach.walkMinutes} мин пешком</span></summary>
+        <div class="fact-body">
+          <p>${esc(b.description)}</p>
+          <dl class="kv">
+            <dt>Покрытие</dt><dd>${esc(cap(SURFACE[b.surface] || b.surface))}${b.artificialSand ? ', песок завезённый' : ''}</dd>
+            <dt>Вход в воду</dt><dd>${esc(cap(ENTRY[b.entry] || b.entry))}${b.depthDrop ? ' · <span class="flag no">резкий обрыв глубины</span>' : ''}</dd>
+            ${b.depthNote ? `<dt>Глубина</dt><dd>${esc(b.depthNote)}</dd>` : ''}
+            <dt>Приливы и отливы</dt><dd>${esc(cap(TIDES[b.tides] || b.tides))}${b.tideNote ? '. ' + esc(b.tideNote) : ''}</dd>
+            <dt>Протяжённость</dt><dd>${meters(b.lengthM)} · в сезон ${esc(CROWD[b.crowd] || b.crowd)}</dd>
+            <dt>Детям</dt><dd>${yesNo(b.kidsFriendly)}</dd>
+            <dt>Пожилым</dt><dd>${yesNo(b.seniorsFriendly)}</dd>
+            <dt>На коляске</dt><dd>${yesNo(b.accessible)}${b.accessibilityNote ? ' · ' + esc(b.accessibilityNote) : ''}</dd>
+          </dl>
+          ${acts ? `<div><b>Активности:</b> <ul class="tags">${acts}</ul></div>` : ''}
+          ${fun ? `<div><b>На пляже:</b> <ul class="tags">${fun}</ul></div>` : ''}
+          <div><button class="linkish" type="button" data-reviews="${b.id}" data-kind="beaches" data-title="${esc(b.name)}">Отзывы о пляже</button></div>
+        </div>
+      </details>`;
+  }
+
+  // пологий пляж без серфинга обычно закрыт рифом или бухтой — региональная волна до него не доходит
+  const sheltered = h => h.beach && h.beach.info.entry === 'GENTLE' && !h.beach.info.activities.includes('SURFING');
+
+  function seasonFact(h) {
+    const s = h.season;
+    if (!s) return '';
+    const month = cap(MONTHS[s.month - 1]);
+    const hazards = s.hazards.map(z => `<li class="${z.severity}"><b>${esc(HAZARD[z.kind] || z.kind)}</b> (${esc(SEVERITY[z.severity])}): ${esc(z.note)}</li>`).join('');
+    return `
+      <details class="fact">
+        <summary><span aria-hidden="true">🌤</span><b>${month}</b><span class="sum-sub">воздух +${s.airC}${s.waterC != null ? ', вода +' + s.waterC : ''} · ${esc(COMFORT[s.comfort])}${s.hazards.length ? ' · ⚠ ' + s.hazards.length : ''}</span></summary>
+        <div class="fact-body">
+          <dl class="kv">
+            <dt>Погода</dt><dd>${esc(cap(COMFORT[s.comfort]))}, ${esc(RAIN[s.rain])}</dd>
+            ${s.waves ? `<dt>Море</dt><dd>${esc(cap(WAVES[s.waves]))}${s.waves === 'HIGH' && sheltered(h) ? ' на открытых пляжах региона, у этого пляжа спокойнее' : ''}</dd>` : ''}
+            ${s.note ? `<dt>Сезон</dt><dd>${esc(s.note)}</dd>` : ''}
+          </dl>
+          ${hazards ? `<div><b>О чём стоит знать:</b><ul class="hazards">${hazards}</ul></div>` : '<p>Особых сезонных рисков нет.</p>'}
+        </div>
+      </details>`;
+  }
+
+  function mallText(h) {
+    const mall = h.nearby.find(p => p.kind === 'SHOPPING' && p.walkMinutes <= 15);
+    return mall ? `🛍 ${esc(mall.name)} — ${mall.walkMinutes} мин · ` : '';
+  }
+
+  function nearbyFact(h, slow) {
+    if (!h.nearby.length) return '';
+    const walkable = h.nearby.filter(p => (slow ? p.slowWalkMinutes : p.walkMinutes) <= 15).length;
+    const rows = h.nearby.map(p => {
+      const mins = slow ? p.slowWalkMinutes : p.walkMinutes;
+      const taxi = Math.max(5, Math.round(p.distanceMeters * 1.3 / 400) + 3);
+      const how = mins <= 20 ? `${mins} мин пешком` : `≈${taxi} мин на такси`;
+      return `<li><span>${p.kind === 'SHOPPING' ? '🛍 ' : ''}${esc(p.name)} <span class="kind">· ${esc(PLACE[p.kind] || '')} · ${meters(p.distanceMeters)}</span>${p.note ? `<br><span class="kind">${esc(p.note)}</span>` : ''}</span>
+        <span class="walk${mins > 20 ? ' taxi' : ''}">${how}</span></li>`;
+    }).join('');
+    return `
+      <details class="fact">
+        <summary><span aria-hidden="true">📍</span><b>Рядом</b><span class="sum-sub">${mallText(h)}${walkable ? walkable + ' ' + plural(walkable, 'место', 'места', 'мест') + ' в 15 минутах' + (slow ? ' спокойным шагом' : ' пешком') : 'пешком далеко — лучше такси'}</span></summary>
+        <div class="fact-body"><ul class="places">${rows}</ul>
+          ${slow ? '<p class="hint">Время пешком — спокойным шагом, около 3 км/ч.</p>' : ''}</div>
+      </details>`;
+  }
+
+  function transportFact(h, intent) {
+    const t = h.services && h.services.transport;
+    if (!t || !t.length) return '';
+    const asked = (intent.transit || []).length > 0;
+    const air = t.find(x => x.kind === 'AIRPORT');
+    const metro = t.find(x => x.kind === 'METRO');
+    const sub = [air ? `✈ ${duration(air.minutes)} до аэропорта` : '', metro ? `Ⓜ ${duration(metro.minutes)} ${MODE[metro.mode]}` : '']
+      .filter(Boolean).join(' · ');
+    const rows = t.map(x => `<li><span>${TRANSIT[x.kind]} ${esc(x.name)} <span class="kind">· ${meters(x.distanceMeters)}</span>${
+        x.note ? `<br><span class="kind">${esc(x.note)}</span>` : ''}</span>
+        <span class="walk${x.mode === 'WALK' ? '' : ' taxi'}">≈${duration(x.minutes)} ${MODE[x.mode]}</span></li>`).join('');
+    return `
+      <details class="fact"${asked ? ' open' : ''}>
+        <summary><span aria-hidden="true">🧭</span><b>Как добраться</b><span class="sum-sub">${sub}</span></summary>
+        <div class="fact-body"><ul class="places">${rows}</ul>
+          <p class="hint">Время — обычное, без пробок и очередей на границе. В час пик закладывайте запас.</p></div>
+      </details>`;
+  }
+
+  function diningFact(h, intent) {
+    const s = h.services;
+    if (!s) return '';
+    const d = s.dining;
+    const addons = s.mealAddons || [];
+    const food = s.foodNearby || [];
+    if (!d && !addons.length && !food.length) return '';
+    const guests = intent.guests || { adults: 2, childrenAges: [] };
+    const included = h.mealPlan === 'ROOM_ONLY' ? 'Питание в цену не входит' : `В цену входит: ${(MEALS[h.mealPlan] || '').toLowerCase()}`;
+    const extra = addons.filter(a => PLAN_ORDER.indexOf(a.plan) > PLAN_ORDER.indexOf(h.mealPlan)).map(a => {
+      const total = addonTotal(a, guests.adults, guests.childrenAges || [], h.price.nights);
+      return `<li class="yes"><b>${esc(MEALS[a.plan])}</b> — +${rub(a.adultPerNight)} взрослому в сутки${Number(a.childPerNight) ? `, ${rub(a.childPerNight)} ребёнку` : ''}
+        <small>· дети до ${a.childFreeUnder} лет бесплатно · за вашу поездку ≈${rub(total)}${a.note ? ' · ' + esc(a.note) : ''}</small></li>`;
+    }).join('');
+    const wanted = new Set(intent.diet || []);
+    const diets = d ? d.diets.map(x => `<span class="tag${[...wanted].some(w => w === x || (w === 'VEGETARIAN' && (x === 'VEGAN' || x === 'HINDU'))) ? ' on' : ''}">${esc(DIET[x] || x)}</span>`).join('') : '';
+    const cafes = food.map(f => `<li><span>${esc(f.name)} <span class="kind">· ${esc(f.cuisine)} · ${'₽'.repeat(f.priceLevel)}${
+        f.meals.length && f.cuisine !== 'завтраки' ? ' · ' + f.meals.map(m => MEAL_TIME[m]).join(', ') : ''}${f.diets.length ? ' · ' + f.diets.map(x => DIET[x]).join(', ') : ''}</span>${
+        f.note ? `<br><span class="kind">${esc(f.note)}</span>` : ''}</span><span class="walk">${f.walkMinutes} мин пешком</span></li>`).join('');
+    const asked = wanted.size || intent.mealPlan || (intent.locationFeatures || []).includes('FOOD_NEARBY');
+    const sub = [included.replace('В цену входит: ', '').replace('Питание в цену не входит', 'без питания'),
+      addons.length ? 'можно добавить' : '', d && d.diets.length ? d.diets.slice(0, 3).map(x => DIET[x]).join(', ') : ''].filter(Boolean).join(' · ');
+    return `
+      <details class="fact"${asked ? ' open' : ''}>
+        <summary><span aria-hidden="true">🍽</span><b>Питание и кухня</b><span class="sum-sub">${esc(sub)}</span></summary>
+        <div class="fact-body">
+          <dl class="kv">
+            <dt>В тарифе</dt><dd>${esc(included)}</dd>
+            ${d ? `<dt>Кухня</dt><dd>${esc(d.cuisines.join(', '))}</dd>` : ''}
+            ${d && d.note ? `<dt>Важно</dt><dd>${esc(d.note.split(' · ').join('; '))}</dd>` : ''}
+          </dl>
+          ${diets ? `<p class="tags" aria-label="Меню">${diets}</p>` : ''}
+          ${extra ? `<p class="hint" style="margin-top:8px">Можно добавить к тарифу при бронировании:</p><ul class="feat" style="grid-template-columns:1fr">${extra}</ul>` : ''}
+          ${cafes ? `<p class="hint" style="margin-top:8px">Где поесть рядом:</p><ul class="places">${cafes}</ul>` : ''}
+        </div>
+      </details>`;
+  }
+
+  function facilityFact(h, intent) {
+    const f = h.services && h.services.facilities;
+    if (!f || !f.length) return '';
+    const wanted = new Set(intent.amenities || []);
+    const list = f.slice().sort((a, b) => (wanted.has(b.facility) - wanted.has(a.facility))
+      || FACILITY_ORDER.indexOf(a.facility) - FACILITY_ORDER.indexOf(b.facility));
+    const rows = list.map(x => `<li class="${x.available ? 'yes' : 'no'}">${esc(FACILITY[x.facility] || x.facility)}${x.note ? ` <small>· ${esc(x.note)}</small>` : ''}</li>`).join('');
+    const has = list.filter(x => x.available && ['POOL', 'GYM', 'BAR', 'PARKING'].includes(x.facility)).map(x => FACILITY[x.facility].split(' ').slice(1).join(' ').toLowerCase());
+    const asked = [...wanted].some(a => f.some(x => x.facility === a));
+    return `
+      <details class="fact"${asked ? ' open' : ''}>
+        <summary><span aria-hidden="true">🏨</span><b>В отеле</b><span class="sum-sub">${has.length ? esc(has.join(', ')) : 'базовая инфраструктура'}</span></summary>
+        <div class="fact-body"><ul class="feat">${rows}</ul></div>
+      </details>`;
+  }
+
+  function policyFact(h, intent) {
+    const p = h.policies;
+    if (!p) return '';
+    const wanted = new Set(intent.room || []);
+    const feats = p.features.slice().sort((a, b) => (wanted.has(b.feature) - wanted.has(a.feature)) || (b.available - a.available))
+      .map(f => `<li class="${f.available ? 'yes' : 'no'}">${esc(FEATURE[f.feature] || f.feature)}${f.note ? ` <small>· ${esc(f.note)}</small>` : ''}</li>`).join('');
+    const pets = p.pets.allowed.length
+      ? `Можно: ${p.pets.allowed.map(k => PET[k] || k).join(', ')}${p.pets.fee != null ? (Number(p.pets.fee) === 0 ? ' · бесплатно' : ' · ' + rub(p.pets.fee) + '/ночь') : ''}${p.pets.note ? ' · ' + esc(p.pets.note) : ''}`
+      : 'С животными нельзя';
+    const asked = (intent.room || []).length || (intent.pets || []).length;
+    return `
+      <details class="fact"${asked ? ' open' : ''}>
+        <summary><span aria-hidden="true">🛎</span><b>Номер и правила</b><span class="sum-sub">заезд с ${esc(p.checkInFrom)}, выезд до ${esc(p.checkOutUntil)} · ${p.pets.allowed.length ? '🐾 можно с животными' : 'без животных'}</span></summary>
+        <div class="fact-body">
+          <dl class="kv">
+            <dt>Заезд</dt><dd>с ${esc(p.checkInFrom)}</dd>
+            <dt>Выезд</dt><dd>до ${esc(p.checkOutUntil)}</dd>
+            ${p.stayNote ? `<dt>Важно</dt><dd>${esc(p.stayNote)}</dd>` : ''}
+            <dt>Животные</dt><dd>${pets}</dd>
+          </dl>
+          <ul class="feat">${feats}</ul>
+        </div>
+      </details>`;
+  }
+
+  function wildlifeFact(h) {
+    if (!h.wildlife || !h.wildlife.length) return '';
+    const month = h.season ? h.season.month : null;
+    const rows = h.wildlife.map(w => {
+      const now = month && w.months.includes(month);
+      return `<li class="${now ? 'yes' : 'no'}"><b>${esc(WILDLIFE[w.kind] || w.kind)}</b> — ${esc(VIEWING[w.viewing])}, ${esc(CHANCE[w.chance])}
+        <small>· ${esc(monthsShort(w.months))}</small><br><small>${esc(w.note)}</small></li>`;
+    }).join('');
+    const kinds = [...new Set(h.wildlife.map(w => (WILDLIFE[w.kind] || w.kind)))].join(', ');
+    return `
+      <details class="fact">
+        <summary><span aria-hidden="true">🌊</span><b>Морские обитатели</b><span class="sum-sub">${esc(kinds)}</span></summary>
+        <div class="fact-body"><ul class="feat" style="grid-template-columns:1fr">${rows}</ul>
+          <p class="hint">С берега — бесплатно, выход в море на лодке или яхте оплачивается отдельно.${month ? ' Галочкой отмечено то, что бывает в месяц поездки.' : ''}</p></div>
+      </details>`;
+  }
+
+  function roadFact(h) {
+    const r = h.surroundings;
+    if (!r || (r.roadNoise === 'LOW' && r.carAccess === 'DOOR' && !r.roadNote && !r.accessNote)) return '';
+    return `
+      <details class="fact">
+        <summary><span aria-hidden="true">🚗</span><b>Дорога и подъезд</b><span class="sum-sub">${esc(NOISE[r.roadNoise])} · ${esc(CAR[r.carAccess])}</span></summary>
+        <div class="fact-body">
+          <dl class="kv">
+            <dt>Шум дорог</dt><dd>${esc(cap(NOISE[r.roadNoise]))}${r.roadNote ? '. ' + esc(r.roadNote) : ''}</dd>
+            <dt>Подъезд</dt><dd>${esc(cap(CAR[r.carAccess]))}${r.accessNote ? '. ' + esc(r.accessNote) : ''}</dd>
+          </dl>
+        </div>
+      </details>`;
+  }
+
+  function entryFact(h) {
+    const e = h.entry;
+    if (!e || e.regime === 'DOMESTIC') return '';
+    const checked = e.checkedOn ? new Date(e.checkedOn + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    return `
+      <details class="fact">
+        <summary><span aria-hidden="true">🛂</span><b>Въезд для граждан РФ</b><span class="sum-sub">${esc(e.summary)}</span></summary>
+        <div class="fact-body">
+          ${e.details ? `<p>${esc(e.details)}</p>` : ''}
+          <dl class="kv">
+            <dt>Документ</dt><dd>${e.internalPassport ? 'внутренний паспорт РФ или загранпаспорт' : 'загранпаспорт'}</dd>
+            ${e.maxDays ? `<dt>Без визы</dt><dd>до ${e.maxDays} дней</dd>` : ''}
+          </dl>
+          <p class="hint">Проверено ${esc(checked)}${e.sourceUrl ? ` по <a href="${esc(e.sourceUrl)}" target="_blank" rel="noopener">источнику</a>` : ''}. Правила меняются — перед поездкой сверьтесь с сайтом МИД.</p>
+        </div>
+      </details>`;
+  }
+
+  function accessFact(h, intent) {
+    const a = h.accessibility;
+    if (!a) return '';
+    const asked = (intent.access || []).length > 0;
+    if (!asked && !a.note) return '';
+    return `
+      <details class="fact"${asked ? ' open' : ''}>
+        <summary><span aria-hidden="true">♿</span><b>Доступная среда</b><span class="sum-sub">${a.accessibleRoom ? 'есть номер для гостей на коляске' : a.stepFree ? 'вход без ступеней' : 'ограниченно'}</span></summary>
+        <div class="fact-body">
+          <dl class="kv">
+            <dt>Номер для коляски</dt><dd>${yesNo(a.accessibleRoom)}</dd>
+            <dt>Вход без ступеней</dt><dd>${yesNo(a.stepFree)}</dd>
+            <dt>Лифт</dt><dd>${yesNo(a.elevator)}</dd>
+            <dt>Рельеф вокруг</dt><dd>${esc(cap(TERRAIN[a.terrain] || a.terrain))}</dd>
+          </dl>
+          ${a.note ? `<p>${esc(a.note)}</p>` : ''}
+        </div>
+      </details>`;
+  }
+
+  // ---------------------------------------------------------------- отзывы
+  const rv = document.getElementById('reviews');
+  const RV_PAGE = 5;
+
+  async function openReviews(kind, id, title, intent) {
+    const state = { kind, id, title, tripType: null, sort: 'NEWEST', offset: 0, items: [] };
+    const style = intent && intent.guests && intent.guests.childrenAges && intent.guests.childrenAges.length ? 'FAMILY' : null;
+    rv.innerHTML = `<div class="dlg"><h2 id="rv-title">Отзывы: ${esc(title)}</h2><p class="sub">Загружаем…</p></div>`;
+    rv.showModal();
+    await loadReviews(state, true, style);
+  }
+
+  async function loadReviews(state, reset, preferType) {
+    if (reset) { state.offset = 0; state.items = []; }
+    const params = new URLSearchParams({ sort: state.sort, limit: RV_PAGE, offset: state.offset });
+    if (state.tripType) params.set('tripType', state.tripType);
+    try {
+      const res = await fetch(`/api/v1/${state.kind}/${state.id}/reviews?${params}`);
+      const page = await res.json();
+      if (!res.ok) throw new Error(page.detail || 'Ошибка ' + res.status);
+      if (preferType && page.summary.byTripType[preferType] && !state.tripType) {
+        state.tripType = preferType; return loadReviews(state, true);
+      }
+      state.items = state.items.concat(page.items);
+      state.offset += page.items.length;
+      renderReviews(state, page);
+    } catch (e) {
+      rv.innerHTML = `<div class="dlg"><h2 id="rv-title">Отзывы: ${esc(state.title)}</h2><div class="alert err" role="alert">Не удалось загрузить отзывы: ${esc(e.message)}</div>
+        <div class="dlg-foot"><span></span><button class="ghost" type="button" data-close>Закрыть</button></div></div>`;
+      rv.querySelector('[data-close]').onclick = () => rv.close();
+    }
+  }
+
+  function renderReviews(state, page) {
+    const s = page.summary;
+    const all = Object.values(s.byTripType).reduce((x, y) => x + y, 0);
+    const filters = [`<button type="button" data-trip="" aria-pressed="${!state.tripType}">Все · ${all}</button>`]
+      .concat(Object.keys(TRIP).filter(t => s.byTripType[t]).map(t =>
+        `<button type="button" data-trip="${t}" aria-pressed="${state.tripType === t}">${TRIP[t]} · ${s.byTripType[t]}</button>`)).join('');
+    const praised = s.praised.map(a => `<li class="good">${esc(a.label)} · ${a.mentions}</li>`).join('');
+    const criticized = s.criticized.map(a => `<li class="bad">${esc(a.label)} · ${a.mentions}</li>`).join('');
+    const items = state.items.map(r => `
+      <li class="rv-item">
+        <header><span class="rv-score">${Number(r.rating).toFixed(1)}</span><b>${esc(r.title)}</b>
+          <span class="who">${esc(r.author)} · ${esc(TRIP[r.tripType] || r.tripType)} · ${MONTHS[Number(r.stayedOn.slice(5, 7)) - 1]} ${r.stayedOn.slice(0, 4)}</span></header>
+        ${r.pros ? `<p class="pro">${esc(r.pros)}</p>` : ''}
+        ${r.cons ? `<p class="con">${esc(r.cons)}</p>` : ''}
+      </li>`).join('');
+    rv.innerHTML = `
+      <div class="dlg">
+        <h2 id="rv-title">Отзывы: ${esc(state.title)}</h2>
+        <div class="rv-head">
+          <div class="rv-avg">${s.average != null ? Number(s.average).toFixed(1) : '—'}</div>
+          <div class="hint">${s.count} ${plural(s.count, 'отзыв', 'отзыва', 'отзывов')}${state.tripType ? ' — ' + esc(TRIP[state.tripType]).toLowerCase() : ''}</div>
+          <label class="field" style="margin-left:auto">Сортировка
+            <select data-sort>
+              <option value="NEWEST" ${state.sort === 'NEWEST' ? 'selected' : ''}>Сначала новые</option>
+              <option value="BEST" ${state.sort === 'BEST' ? 'selected' : ''}>Сначала хорошие</option>
+              <option value="WORST" ${state.sort === 'WORST' ? 'selected' : ''}>Сначала критика</option>
+            </select></label>
+        </div>
+        <div class="rv-filters" role="group" aria-label="Кто писал">${filters}</div>
+        ${praised ? `<div><b>Хвалят:</b> <ul class="tags">${praised}</ul></div>` : ''}
+        ${criticized ? `<div><b>Жалуются:</b> <ul class="tags">${criticized}</ul></div>` : ''}
+        <ul class="rv-list">${items || '<li class="hint">Отзывов под этот фильтр пока нет.</li>'}</ul>
+        <div class="dlg-foot">
+          <span class="hint">Демо-отзывы: каталог прототипа вымышленный, тексты собраны из характеристик отеля и пляжа.</span>
+          <div class="actions">
+            ${state.offset < page.total ? '<button class="ghost" type="button" data-more>Показать ещё</button>' : ''}
+            <button class="book" type="button" data-close>Закрыть</button>
+          </div>
+        </div>
+      </div>`;
+    rv.querySelector('[data-close]').onclick = () => rv.close();
+    rv.querySelectorAll('[data-trip]').forEach(b => b.onclick = () => { state.tripType = b.dataset.trip || null; loadReviews(state, true); });
+    rv.querySelector('[data-sort]').onchange = e => { state.sort = e.target.value; loadReviews(state, true); };
+    const more = rv.querySelector('[data-more]');
+    if (more) more.onclick = () => loadReviews(state, false);
+  }
+
+  list.addEventListener('click', e => {
+    const btn = e.target.closest('.linkish[data-reviews]');
+    if (btn) openReviews(btn.dataset.kind, btn.dataset.reviews, btn.dataset.title, null);
+  });
 
   async function toggleRates(btn) {
     const article = btn.closest('.hotel');
@@ -354,6 +823,8 @@
         <label class="field">Номер и питание
           <select name="rateId">${rates.map(r => `<option value="${r.id}" ${r.id === h.rateId ? 'selected' : ''}>${esc(r.roomName)} — ${esc(MEALS[r.mealPlan] || r.mealPlan)} (до ${r.maxAdults} взр.${r.maxChildren ? ' + ' + r.maxChildren + ' дет.' : ''})${r.refundable ? '' : ', невозвратный'}</option>`).join('')}</select>
         </label>
+        ${(h.services && h.services.mealAddons || []).length ? `<label class="field">Добавить питание
+          <select name="mealUpgrade"></select></label>` : ''}
         <div class="grid2">
           <label class="field">Заезд <input type="date" name="checkIn" required min="${iso(new Date())}" value="${defaultCheckIn(intent)}"></label>
           <label class="field">Ночей <input type="number" name="nights" required min="1" max="30" value="${h.price.nights}"></label>
@@ -364,12 +835,37 @@
         </div>
         <div id="bk-msg" aria-live="polite"></div>
         <div class="dlg-foot">
-          <div class="total"><strong>${rub(h.price.total)}</strong><small>ориентир по выдаче, точная цена — после удержания</small></div>
+          <div class="total"><strong id="bk-est">${rub(h.price.total)}</strong><small>ориентир по выдаче, точная цена — после удержания</small></div>
           <div class="actions"><button class="ghost" type="button" data-close>Отмена</button><button class="book" type="submit">Удержать номер</button></div>
         </div>
       </form>`;
     const form = dlg.querySelector('#bk-form');
-    form.addEventListener('input', () => { key = newKey(); });
+    const mealSel = form.querySelector('[name=mealUpgrade]');
+    const addons = (h.services && h.services.mealAddons) || [];
+    const base = Number(h.price.total) - Number(h.price.mealAddedTotal || 0);
+    const kidsOf = () => String(form.querySelector('[name=children]').value || '').split(/[,\s]+/).filter(Boolean).map(Number).filter(Number.isInteger);
+    const fillMeals = () => {
+      if (!mealSel) return;
+      const rate = rates.find(r => r.id === form.querySelector('[name=rateId]').value);
+      const from = PLAN_ORDER.indexOf(rate ? rate.mealPlan : h.mealPlan);
+      const prev = mealSel.value || h.price.mealAdded || '';
+      const options = addons.filter(a => PLAN_ORDER.indexOf(a.plan) > from);
+      mealSel.innerHTML = `<option value="">Как в тарифе</option>` + options.map(a =>
+        `<option value="${a.plan}">${esc(MEALS[a.plan])} — +${rub(a.adultPerNight)} взрослому в сутки</option>`).join('');
+      mealSel.value = options.some(a => a.plan === prev) ? prev : '';
+      mealSel.closest('label').hidden = !options.length;
+    };
+    const estimate = () => {
+      const a = mealSel && addons.find(x => x.plan === mealSel.value);
+      const nights = +form.querySelector('[name=nights]').value || h.price.nights;
+      const adults = +form.querySelector('[name=adults]').value || 1;
+      const sameRate = form.querySelector('[name=rateId]').value === h.rateId && nights === h.price.nights;
+      const est = form.querySelector('#bk-est');
+      est.textContent = sameRate ? rub(base + (a ? addonTotal(a, adults, kidsOf(), nights) : 0)) : '—';
+    };
+    fillMeals(); estimate();
+    form.querySelector('[name=rateId]').addEventListener('change', fillMeals);
+    form.addEventListener('input', () => { key = newKey(); estimate(); });
     dlg.querySelector('[data-close]').onclick = () => dlg.close();
     form.addEventListener('submit', async e => {
       e.preventDefault();
@@ -387,7 +883,8 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key },
           body: JSON.stringify({ rateId: f.get('rateId'), checkIn: f.get('checkIn'), nights: +f.get('nights'),
-            adults: +f.get('adults'), childrenAges: children, guestName: f.get('guestName'), guestEmail: f.get('guestEmail') })
+            adults: +f.get('adults'), childrenAges: children, guestName: f.get('guestName'), guestEmail: f.get('guestEmail'),
+            mealUpgrade: f.get('mealUpgrade') || null })
         });
         const body = await res.json();
         if (!res.ok) throw new Error(body.detail || 'Ошибка ' + res.status);

@@ -9,6 +9,10 @@ import java.util.UUID;
 record PricedRate(UUID rateId, UUID hotelId, String hotelName, String city, String roomName, String mealPlan,
                   boolean refundable, BigDecimal total, String currency) {
 
+    PricedRate withMeal(String plan, BigDecimal extra) {
+        return new PricedRate(rateId, hotelId, hotelName, city, roomName, plan, refundable, total.add(extra), currency);
+    }
+
     static PricedRate of(RateQuote q) {
         return new PricedRate(q.rateId(), q.hotelId(), q.hotelName(), q.city(), q.roomName(), q.mealPlan(),
                 q.refundable(), q.total(), q.currency());
