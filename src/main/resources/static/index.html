@@ -221,6 +221,10 @@
   .task .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
   .badge-verified { display: inline-block; font-size: 12px; font-weight: 600; color: var(--ok); background: #E6F3EC; border-radius: 999px; padding: 3px 8px; }
   @media (max-width: 640px) { .task { grid-template-columns: minmax(0, 1fr); } .task .acts { justify-content: flex-start; } }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+  .kpi { background: var(--paper); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .kpi b { display: block; font: 700 26px/1.1 "Onest", sans-serif; }
+  .kpi span { color: var(--muted); font-size: 13px; }
   .agent-card { border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 10px; font-size: 14px; }
   .agent-card.PENDING, .agent-card.FAILED { border-color: var(--ink); }
   .agent-card p { margin: 0 0 8px; }
@@ -375,6 +379,14 @@
 
   <section id="role-admin" hidden>
     <div class="panel">
+      <h2>Время до выбора отеля</h2>
+      <p class="lead">От первого запроса гостя до нажатия «Забронировать», за 30 дней. Храним только шаги и номер отеля в выдаче —
+        без текста запросов и данных гостя.</p>
+      <div class="kpis" id="mt-kpis"></div>
+      <div id="mt-recent"></div>
+      <button class="linkish" type="button" id="mt-reset" style="margin-top:10px">Очистить метрику</button>
+    </div>
+    <div class="panel">
       <h2>Пайплайн характеристик</h2>
       <p class="lead" id="ad-status">Загружаем…</p>
       <button class="primary" id="ad-run" type="button">Пересчитать по карте</button>
@@ -498,6 +510,7 @@
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail || 'Сервис поиска ответил ошибкой ' + res.status);
       render(body);
+      track('SEARCH', { results: (body.hotels || []).length });
     } catch (err) {
       results.hidden = true;
       understoodEl.innerHTML = `<div class="state" role="alert">Не удалось выполнить поиск: ${esc(err.message)}. Проверьте, что сервер запущен, и попробуйте ещё раз.</div>`;
@@ -980,6 +993,8 @@
 
   async function openBooking(h, intent) {
     clearInterval(timerId);
+    const rank = lastResult ? lastResult.hotels.findIndex(x => x.hotelId === h.hotelId) + 1 : 0;
+    track('CHOOSE', rank > 0 ? { rank } : {});
     const guests = (intent && intent.guests) || { adults: 2, childrenAges: [] };
     dlg.innerHTML = `<div class="dlg"><h2 id="bk-title">${esc(h.name)}</h2><p class="sub">Загружаем тарифы…</p></div>`;
     dlg.showModal();
@@ -1121,6 +1136,7 @@
 
   function showConfirmed(b) {
     clearInterval(timerId);
+    track('BOOKED');
     dlg.innerHTML = `
       <div class="dlg">
         <h2 id="bk-title">Бронь подтверждена</h2>
@@ -1177,6 +1193,25 @@
   // ------------------------------------------------------------------ сравнение 2–3 отелей
   const compareSet = new Set();
   let lastResult = null;
+
+  // Метрика «время до выбора отеля»: только шаги и номер отеля в выдаче — без текста запроса и данных гостя.
+  const SESSION = (() => {
+    const make = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => (Math.random() * 16 | 0).toString(16));
+    try {
+      let id = sessionStorage.getItem('onestep-session');
+      if (!id) { id = make(); sessionStorage.setItem('onestep-session', id); }
+      return id;
+    } catch (e) { return make(); }
+  })();
+
+  function track(type, extra) {
+    if (location.pathname !== '/' && location.pathname !== '/index.html') return;
+    try {
+      fetch('/api/v1/metrics/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify(Object.assign({ sessionId: SESSION, type }, extra || {})) }).catch(() => {});
+    } catch (e) { /* метрика не должна мешать гостю */ }
+  }
   const cmpDlg = document.getElementById('compare');
   const NOISE_RANK = { LOW: 0, MEDIUM: 1, HIGH: 2 };
   const STAIRS_RANK = { NONE: 0, SOME: 1, MANY: 2 };
@@ -1261,6 +1296,7 @@
           <button class="ghost" type="button" data-close>Закрыть</button></div></div>
       </div>`;
     cmpDlg.showModal();
+    track('COMPARE');
     cmpDlg.querySelector('[data-close]').onclick = () => cmpDlg.close();
     cmpDlg.querySelectorAll('[data-cmp-book]').forEach(b => b.onclick = () => {
       cmpDlg.close();
@@ -1395,6 +1431,7 @@
           ? 'ждёт данных — решение в блоке «Агент данных»' : 'посчитано для ' + c.hotels + ' отелей'}</span>
           <button class="linkish" type="button" data-del="${esc(c.code)}">удалить</button></li>`).join('') + '</ul>' : '';
       renderAgent(s.sources || []);
+      renderMetrics();
       document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await api('/api/v1/admin/characteristics/' + b.dataset.del, { method: 'DELETE' }); loadAdmin(); });
       document.getElementById('ad-facts').innerHTML = '<table class="kv-table"><tr><th>Характеристика</th><th>Отелей</th></tr>' +
         Object.entries(s.facts).map(([k, n]) => `<tr><td>${esc(FACT_TITLE[k] || CLAIM_TITLE[k] || (s.custom.find(c => c.code === k) || {}).title || k)}</td><td>${n}</td></tr>`).join('') + '</table>';
@@ -1429,6 +1466,31 @@
         Ответ «да» у ${r.hotelsWithYes} из ${r.run.hotels} отелей.</div>`;
       loadAdmin();
     } catch (err) { msg.innerHTML = `<div class="alert err">${esc(err.message)}</div>`; }
+  });
+
+  const mmss = sec => sec == null ? '—' : sec < 60 ? Math.round(sec) + ' с' : Math.floor(sec / 60) + ' мин ' + String(Math.round(sec % 60)).padStart(2, '0') + ' с';
+  const pct = v => v == null ? '—' : Math.round(v * 100) + '%';
+
+  async function renderMetrics() {
+    const m = await api('/api/v1/admin/metrics');
+    document.getElementById('mt-kpis').innerHTML = [
+      [mmss(m.medianSeconds), 'медиана до выбора'],
+      [m.medianQueries == null ? '—' : String(m.medianQueries).replace('.', ','), 'запросов до выбора'],
+      [pct(m.fromTop3), 'выбрали из первых трёх'],
+      [m.sessions ? pct(m.chose / m.sessions) : '—', `дошли до выбора (${m.chose} из ${m.sessions})`],
+      [pct(m.compared), 'перед выбором сравнивали'],
+    ].map(([v, t]) => `<div class="kpi"><b>${esc(v)}</b><span>${esc(t)}</span></div>`).join('');
+    document.getElementById('mt-recent').innerHTML = m.recent.length
+      ? '<div style="overflow-x:auto"><table class="kv-table"><tr><th>Начало</th><th>Запросов</th><th>До выбора</th><th>Место в выдаче</th><th>Итог</th></tr>' +
+        m.recent.map(r => `<tr><td>${new Date(r.startedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+          <td>${r.queries}</td><td>${mmss(r.seconds)}</td><td>${r.rank ? '№' + r.rank : '—'}</td>
+          <td>${r.booked ? '✓ забронировал' : r.seconds != null ? 'выбрал' + (r.compared ? ', сравнивал' : '') : 'ушёл без выбора'}</td></tr>`).join('') + '</table></div>'
+      : '<p class="kind">Пока пусто: найдите отель на главной и нажмите «Забронировать» — сессия появится здесь.</p>';
+  }
+
+  document.getElementById('mt-reset').addEventListener('click', async () => {
+    await api('/api/v1/admin/metrics', { method: 'DELETE' });
+    renderMetrics();
   });
 
   const AGENT_STATUS = { PENDING: 'Ждёт решения', FETCHED: '✓ Скачано и учтено', FAILED: '⚠ Не скачалось', REJECTED: 'Отклонено' };

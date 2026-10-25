@@ -191,3 +191,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: true
+  - changeSet:
+      id: 021-guest-events
+      author: chevteam
+      changes:
+        - sqlFile:
+            path: sql/021-guest-events.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
