@@ -582,7 +582,7 @@
                 h.price.mealAdded ? ` · доплата за ${esc((MEALS[h.price.mealAdded] || '').toLowerCase())} ${rub(h.price.mealAddedTotal)} уже в цене` : ''}</small></div>
             <label class="cmp"><input type="checkbox" data-compare="${i}"> Сравнить</label>
             <div class="actions">
-              <button class="ghost" type="button" data-reviews="${h.hotelId}" data-kind="hotels" data-title="${esc(h.name)}">Отзывы</button>
+              ${h.dataSource === 'OSM' && !h.reviewsCount ? '' : `<button class="ghost" type="button" data-reviews="${h.hotelId}" data-kind="hotels" data-title="${esc(h.name)}">Отзывы</button>`}
               <button class="ghost" type="button" data-rates="${h.hotelId}" aria-expanded="false">Все тарифы</button>
               <button class="book" type="button" data-book="${i}">Забронировать</button>
             </div>
@@ -734,7 +734,7 @@
     }).join('');
     const wanted = new Set(intent.diet || []);
     const diets = d ? d.diets.map(x => `<span class="tag${[...wanted].some(w => w === x || (w === 'VEGETARIAN' && (x === 'VEGAN' || x === 'HINDU'))) ? ' on' : ''}">${esc(DIET[x] || x)}</span>`).join('') : '';
-    const cafes = food.map(f => `<li><span>${esc(f.name)} <span class="kind">· ${esc(f.cuisine)} · ${'₽'.repeat(f.priceLevel)}${
+    const cafes = food.map(f => `<li><span>${esc(f.name)} <span class="kind">· ${esc(f.cuisine)}${f.priceLevel ? ' · ' + '₽'.repeat(f.priceLevel) : ''}${
         f.meals.length && f.cuisine !== 'завтраки' ? ' · ' + f.meals.map(m => MEAL_TIME[m]).join(', ') : ''}${f.diets.length ? ' · ' + f.diets.map(x => DIET[x]).join(', ') : ''}</span>${
         f.note ? `<br><span class="kind">${esc(f.note)}</span>` : ''}</span><span class="walk">${f.walkMinutes} мин пешком</span></li>`).join('');
     const asked = wanted.size || intent.mealPlan || (intent.locationFeatures || []).includes('FOOD_NEARBY');
@@ -774,7 +774,12 @@
 
   function policyFact(h, intent) {
     const p = h.policies;
-    if (!p) return '';
+    if (!p) return h.dataSource === 'OSM' ? `
+      <details class="fact">
+        <summary><span aria-hidden="true">🛎</span><b>Номер и правила</b><span class="sum-sub">отель пока не указал — уточните</span></summary>
+        <div class="fact-body"><p class="hint">Время заезда и выезда, правила для животных и удобства в номере отель заполняет сам
+          в экстранете. Пока их нет — уточните у отеля перед бронированием.</p></div>
+      </details>` : '';
     const wanted = new Set(intent.room || []);
     const feats = p.features.slice().sort((a, b) => (wanted.has(b.feature) - wanted.has(a.feature)) || (b.available - a.available))
       .map(f => `<li class="${f.available ? 'yes' : 'no'}">${esc(FEATURE[f.feature] || f.feature)}${f.note ? ` <small>· ${esc(f.note)}</small>` : ''}</li>`).join('');
@@ -816,14 +821,15 @@
 
   function roadFact(h) {
     const r = h.surroundings;
-    if (!r || (r.roadNoise === 'LOW' && r.carAccess === 'DOOR' && !r.roadNote && !r.accessNote)) return '';
+    if (!r || (r.roadNoise === 'LOW' && (r.carAccess === 'DOOR' || !r.carAccess) && !r.roadNote && !r.accessNote)) return '';
+    const car = r.carAccess ? CAR[r.carAccess] : 'подъезд — уточните у отеля';
     return `
       <details class="fact">
-        <summary><span aria-hidden="true">🚗</span><b>Дорога и подъезд</b><span class="sum-sub">${esc(NOISE[r.roadNoise])} · ${esc(CAR[r.carAccess])}</span></summary>
+        <summary><span aria-hidden="true">🚗</span><b>Дорога и подъезд</b><span class="sum-sub">${esc(NOISE[r.roadNoise])} · ${esc(car)}</span></summary>
         <div class="fact-body">
           <dl class="kv">
-            <dt>Шум дорог</dt><dd>${esc(cap(NOISE[r.roadNoise]))}${r.roadNote ? '. ' + esc(r.roadNote) : ''}</dd>
-            <dt>Подъезд</dt><dd>${esc(cap(CAR[r.carAccess]))}${r.accessNote ? '. ' + esc(r.accessNote) : ''}</dd>
+            <dt>Шум дорог</dt><dd>${esc(cap(NOISE[r.roadNoise]))}${r.roadNote ? '. ' + esc(cap(r.roadNote)) : ''}</dd>
+            <dt>Подъезд</dt><dd>${esc(cap(car))}${r.accessNote ? '. ' + esc(r.accessNote) : ''}</dd>
           </dl>
         </div>
       </details>`;

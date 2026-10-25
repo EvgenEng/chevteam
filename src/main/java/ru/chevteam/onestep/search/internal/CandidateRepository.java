@@ -60,16 +60,24 @@ class CandidateRepository {
                    r.id AS rate_id, r.room_name, r.meal_plan, r.price_per_night, r.refundable,
                    COALESCE(sc.coefficient, 1.0) AS season_coefficient,
                    ARRAY(SELECT a.amenity FROM hotel_amenity a WHERE a.hotel_id = h.id ORDER BY a.amenity) AS amenities,
-                   ARRAY(SELECT l.name || '|' || l.kind || '|' || ROUND(ST_Distance(h.location, l.location))::int
-                                   || '|' || COALESCE(l.note, '')
-                           FROM landmark l
-                          WHERE l.city = h.city AND ST_DWithin(h.location, l.location, %d)
-                          ORDER BY ST_Distance(h.location, l.location)
-                          LIMIT %d) AS nearby,
+                   CASE WHEN h.data_source = 'OSM' THEN
+                        -- реальный отель: настоящие места из OpenStreetMap, посчитанные пайплайном
+                        ARRAY(SELECT hp.name || '|' || hp.kind || '|' || hp.distance_m || '|'
+                                FROM hotel_place hp
+                               WHERE hp.hotel_id = h.id AND hp.list = 'SEE' AND hp.distance_m <= %1$d
+                               ORDER BY hp.distance_m LIMIT %2$d)
+                   ELSE
+                        ARRAY(SELECT l.name || '|' || l.kind || '|' || ROUND(ST_Distance(h.location, l.location))::int
+                                        || '|' || COALESCE(l.note, '')
+                                FROM landmark l
+                               WHERE l.city = h.city AND ST_DWithin(h.location, l.location, %1$d)
+                               ORDER BY ST_Distance(h.location, l.location)
+                               LIMIT %2$d) END AS nearby,
                    (SELECT l.name || '|' || l.kind || '|' || ROUND(ST_Distance(h.location, l.location))::int
                            || '|' || COALESCE(l.note, '')
                       FROM landmark l
                      WHERE l.city = h.city AND l.kind = 'SHOPPING' AND ST_DWithin(h.location, l.location, 3000)
+                       AND h.data_source <> 'OSM'
                      ORDER BY ST_Distance(h.location, l.location)
                      LIMIT 1) AS shopping,
                    h.road_noise, h.road_note, h.car_access, h.access_note, h.data_source,
@@ -82,14 +90,23 @@ class CandidateRepository {
                    ARRAY(SELECT ma.meal_plan || '|' || ma.adult_price || '|' || ma.child_price || '|' || ma.child_free_under
                                    || '|' || COALESCE(ma.note, '')
                            FROM meal_addon ma WHERE ma.hotel_id = h.id ORDER BY ma.adult_price) AS meal_addons,
-                   ARRAY(SELECT fp.name || '|' || ROUND(ST_Distance(h.location, fp.location))::int || '|'
-                                   || array_to_string(fp.meals, ',') || '|' || array_to_string(fp.diets, ',') || '|'
-                                   || fp.cuisine || '|' || fp.price_level || '|' || COALESCE(fp.note, '')
-                           FROM food_place fp
-                          WHERE fp.city = h.city AND ST_DWithin(h.location, fp.location, %d)
-                          ORDER BY ST_Distance(h.location, fp.location)
-                          LIMIT %d) AS food_nearby,
-                   %s AS landmark_distance_m
+                   CASE WHEN h.data_source = 'OSM' THEN
+                        -- реальный отель: кафе из OpenStreetMap; демо-кафе рядом с ним не показываем
+                        ARRAY(SELECT hp.name || '|' || hp.distance_m || '|' || COALESCE(hp.meals, '') || '|'
+                                        || COALESCE(hp.diets, '') || '|' || COALESCE(hp.cuisine, 'кафе') || '|0|'
+                                        || COALESCE(hp.note, '')
+                                FROM hotel_place hp
+                               WHERE hp.hotel_id = h.id AND hp.list = 'FOOD' AND hp.distance_m <= %3$d
+                               ORDER BY hp.distance_m LIMIT %4$d)
+                   ELSE
+                        ARRAY(SELECT fp.name || '|' || ROUND(ST_Distance(h.location, fp.location))::int || '|'
+                                        || array_to_string(fp.meals, ',') || '|' || array_to_string(fp.diets, ',') || '|'
+                                        || fp.cuisine || '|' || fp.price_level || '|' || COALESCE(fp.note, '')
+                                FROM food_place fp
+                               WHERE fp.city = h.city AND ST_DWithin(h.location, fp.location, %3$d)
+                               ORDER BY ST_Distance(h.location, fp.location)
+                               LIMIT %4$d) END AS food_nearby,
+                   %5$s AS landmark_distance_m
               FROM hotel h
               JOIN LATERAL (
                     SELECT rr.id, rr.room_name, rr.meal_plan, rr.price_per_night, rr.refundable
@@ -97,20 +114,20 @@ class CandidateRepository {
                      WHERE rr.hotel_id = h.id
                        AND rr.max_adults >= :adults
                        AND rr.max_children >= :children
-                       %s
-                     ORDER BY %s rr.price_per_night
+                       %6$s
+                     ORDER BY %7$s rr.price_per_night
                      LIMIT 1
                    ) r ON TRUE
               LEFT JOIN LATERAL (
                     SELECT b.id AS beach_id, ROUND(ST_Distance(h.location, b.location))::int AS beach_distance_m
                       FROM beach b
-                     WHERE b.city = h.city AND ST_DWithin(h.location, b.location, %d)
+                     WHERE b.city = h.city AND ST_DWithin(h.location, b.location, %8$d)
                      ORDER BY ST_Distance(h.location, b.location)
                      LIMIT 1
                    ) nb ON TRUE
               LEFT JOIN season_coefficient sc ON sc.city = h.city AND sc.month = :month
               LEFT JOIN hotel_dining hd ON hd.hotel_id = h.id
-              %s
+              %9$s
              WHERE h.listed
             """;
 
@@ -220,9 +237,11 @@ class CandidateRepository {
             accessibility(rs),
             rs.getObject("beach_id", UUID.class),
             rs.getObject("beach_distance_m", Integer.class),
-            policies(rs),
+            // реальный отель: время заезда, животные и подъезд не выдумываем — их указывает отель в экстранете
+            "OSM".equals(rs.getString("data_source")) ? null : policies(rs),
             new Surroundings(Surroundings.Level.valueOf(rs.getString("road_noise")), rs.getString("road_note"),
-                    Surroundings.CarAccess.valueOf(rs.getString("car_access")), rs.getString("access_note")),
+                    "OSM".equals(rs.getString("data_source")) ? null : Surroundings.CarAccess.valueOf(rs.getString("car_access")),
+                    rs.getString("access_note")),
             place(rs.getString("shopping")),
             services(rs),
             rs.getString("data_source"));

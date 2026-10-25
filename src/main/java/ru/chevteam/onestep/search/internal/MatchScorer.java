@@ -581,7 +581,11 @@ final class MatchScorer {
         if (intent.pets().isEmpty()) {
             return;
         }
-        HotelPolicies.Pets pets = hotel.policies() == null ? null : hotel.policies().pets();
+        if (hotel.policies() == null) {
+            t.add(W_PETS, 0.3, MatchReason.partial("Про животных отель пока не указал — уточните перед бронированием"));
+            return;
+        }
+        HotelPolicies.Pets pets = hotel.policies().pets();
         if (pets == null || !pets.any()) {
             t.add(W_PETS, 0, MatchReason.miss("С животными нельзя"));
             return;
@@ -675,6 +679,12 @@ final class MatchScorer {
             t.add(4, 0.2, MatchReason.partial(s.roadNote() != null ? s.roadNote() : "Оживлённая дорога у отеля"));
         }
         String note = s.accessNote();
+        if (s.carAccess() == null) {
+            if (intent.locationFeatures().contains(LocationFeature.CAR_ACCESS)) {
+                t.add(W_CAR, 0.5, MatchReason.partial("Подъезд к входу: нет данных — уточните у отеля"));
+            }
+            return;
+        }
         if (intent.locationFeatures().contains(LocationFeature.CAR_ACCESS)) {
             switch (s.carAccess()) {
                 case DOOR -> t.add(W_CAR, 1, MatchReason.match("Машина подъедет к входу" + (note != null ? ". " + note : "")));
@@ -794,6 +804,9 @@ final class MatchScorer {
         boolean dinner = close.stream().anyMatch(f -> f.meals().contains(HotelServices.FoodPlace.Meal.DINNER));
         if (breakfast && dinner) {
             t.add(W_FOOD_NEARBY, 1, MatchReason.match("Рядом где позавтракать и поужинать: " + names));
+        } else if (!breakfast && !dinner) {
+            // часы работы неизвестны (так бывает у кафе из OpenStreetMap) — не обещаем ни завтраков, ни ужинов
+            t.add(W_FOOD_NEARBY, 0.8, MatchReason.match("Рядом где поесть: " + names));
         } else {
             t.add(W_FOOD_NEARBY, 0.6, MatchReason.partial("Рядом " + (breakfast ? "завтраки" : "ужины") + ": " + names));
         }

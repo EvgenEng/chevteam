@@ -25,6 +25,7 @@ import ru.chevteam.onestep.enrichment.internal.osm.OverpassQuery;
 import ru.chevteam.onestep.enrichment.internal.tools.BuiltIns;
 import ru.chevteam.onestep.enrichment.internal.tools.Characteristic;
 import ru.chevteam.onestep.enrichment.internal.tools.Computed;
+import ru.chevteam.onestep.enrichment.internal.tools.NearbyPlaces;
 import ru.chevteam.onestep.enrichment.internal.tools.Recipe;
 import ru.chevteam.onestep.enrichment.internal.tools.Site;
 import ru.chevteam.onestep.enrichment.internal.tools.TerrainCharacteristics;
@@ -140,8 +141,17 @@ public class EnrichmentPipeline {
         }
         Double sea = facts.stream().filter(f -> BuiltIns.SEA_DISTANCE.equals(f.code())).map(HotelFact::number).findFirst().orElse(null);
         HotelFact noise = facts.stream().filter(f -> BuiltIns.ROAD_NOISE.equals(f.code())).findFirst().orElse(null);
+        List<NearbyPlaces.Place> places;
+        try {
+            places = NearbyPlaces.find(site, osm);
+        } catch (RuntimeException e) {
+            log.warn("Nearby places failed for {}: {}", site.name(), e.toString());
+            places = List.of();
+        }
+        List<NearbyPlaces.Place> nearby = places;
         tx.executeWithoutResult(s -> {
             repo.replace(site.hotelId(), FactSource.OSM, facts);
+            repo.replacePlaces(site.hotelId(), nearby);
             repo.project(site.hotelId(), sea, noise == null ? null : noise.level(), noise == null ? null : noise.evidence());
         });
         return facts.size();

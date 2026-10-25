@@ -62,6 +62,23 @@ class FactRepository {
         }
     }
 
+    /** Места рядом: заменяем целиком, как и факты. */
+    void replacePlaces(UUID hotelId, List<ru.chevteam.onestep.enrichment.internal.tools.NearbyPlaces.Place> places) {
+        jdbc.sql("DELETE FROM hotel_place WHERE hotel_id = :id").param("id", hotelId).update();
+        for (var p : places) {
+            jdbc.sql("""
+                            INSERT INTO hotel_place (hotel_id, list, ref, kind, name, distance_m, cuisine, meals, diets, note)
+                            VALUES (:hotel, :list, :ref, :kind, :name, :meters, :cuisine, :meals, :diets, :note)
+                            ON CONFLICT DO NOTHING
+                            """)
+                    .param("hotel", hotelId).param("list", p.list()).param("ref", p.ref()).param("kind", p.kind())
+                    .param("name", cut(p.name(), 200)).param("meters", p.meters()).param("cuisine", cut(p.cuisine(), 100))
+                    .param("meals", String.join(",", p.meals())).param("diets", String.join(",", p.diets()))
+                    .param("note", cut(p.note(), 300))
+                    .update();
+        }
+    }
+
     /**
      * Проекция фактов в поля карточки, по которым уже работают поиск и скоринг:
      * расстояние до моря и линия пляжа, шум дорог. Для этих отелей источник правды — пайплайн.
