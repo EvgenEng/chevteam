@@ -1,5 +1,6 @@
 package ru.chevteam.onestep.enrichment.internal;
 
+import ru.chevteam.onestep.enrichment.OsmSourceFetcher;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -15,7 +16,11 @@ import ru.chevteam.onestep.enrichment.FactSource;
 import ru.chevteam.onestep.enrichment.HotelFact;
 import ru.chevteam.onestep.enrichment.HotelFactsUpdated;
 import ru.chevteam.onestep.enrichment.internal.geo.DemGrid;
+import ru.chevteam.onestep.enrichment.internal.osm.DataCoverage;
+import ru.chevteam.onestep.enrichment.internal.osm.OsmElement;
+import ru.chevteam.onestep.enrichment.internal.osm.OsmFilter;
 import ru.chevteam.onestep.enrichment.internal.osm.OsmSnapshot;
+import ru.chevteam.onestep.enrichment.internal.osm.OverpassQuery;
 import ru.chevteam.onestep.enrichment.internal.tools.BuiltIns;
 import ru.chevteam.onestep.enrichment.internal.tools.Characteristic;
 import ru.chevteam.onestep.enrichment.internal.tools.Computed;
@@ -57,9 +62,12 @@ public class EnrichmentPipeline {
     private final ReentrantLock running = new ReentrantLock();
     private final AtomicReference<OsmSnapshotLoader.Loaded> snapshot = new AtomicReference<>();
     private final AtomicReference<Optional<DemGrid>> dem = new AtomicReference<>();
+    private final AtomicReference<Optional<DataCoverage>> baseCoverage = new AtomicReference<>();
+    private final OsmSourceFetcher fetcher;
 
     EnrichmentPipeline(OsmSnapshotLoader loader, FactRepository repo, EnrichmentProperties props, ObjectMapper mapper,
-                       ApplicationEventPublisher events, TransactionTemplate tx, Clock clock) {
+                       ApplicationEventPublisher events, TransactionTemplate tx, Clock clock, OsmSourceFetcher fetcher) {
+        this.fetcher = fetcher;
         this.loader = loader;
         this.repo = repo;
         this.props = props;
@@ -148,19 +156,54 @@ public class EnrichmentPipeline {
         return d;
     }
 
+    /** Снимок из jar плюс источники, которые агент данных докачал с одобрения админа (хранятся в базе). */
     private OsmSnapshotLoader.Loaded snapshot() {
         OsmSnapshotLoader.Loaded s = snapshot.get();
         if (s == null) {
             s = loader.load();
+            List<String[]> extra = repo.fetchedSources();
+            if (!extra.isEmpty()) {
+                List<OsmElement> all = new ArrayList<>(s.snapshot().elements());
+                List<String> filters = new ArrayList<>();
+                for (String[] source : extra) {
+                    try {
+                        all.addAll(loader.parse(source[1]).elements());
+                        filters.add(source[0]);
+                    } catch (RuntimeException e) {
+                        log.warn("Skipping broken fetched source {}: {}", source[0], e.toString());
+                    }
+                }
+                s = new OsmSnapshotLoader.Loaded(new OsmSnapshot(all, s.snapshot().takenAt()),
+                        s.description() + " + докачано агентом данных: " + String.join(", ", filters));
+            }
             snapshot.set(s);
         }
         return s;
+    }
+
+    /** Что выгружено: манифест снимка плюс одобренные докачки. Пусто — манифеста нет, проверку покрытия не делаем. */
+    private Optional<DataCoverage> coverage() {
+        Optional<DataCoverage> base = baseCoverage.get();
+        if (base == null) {
+            base = Optional.ofNullable(loader.loadCoverage());
+            baseCoverage.set(base);
+        }
+        return base.map(c -> {
+            DataCoverage result = c;
+            for (String filter : repo.fetchedFilters()) {
+                result = result.with(filter);
+            }
+            return result;
+        });
     }
 
     List<Characteristic> characteristics() {
         List<Characteristic> all = new ArrayList<>(BuiltIns.all());
         dem().ifPresent(d -> all.addAll(TerrainCharacteristics.all(d)));
         for (FactRepository.Custom c : repo.customs()) {
+            if (!FactRepository.Custom.ACTIVE.equals(c.status())) {
+                continue; // ждёт данных: без них «рядом нет» было бы неправдой
+            }
             try {
                 all.add(mapper.readValue(c.recipe(), Recipe.class).characteristic());
             } catch (JsonProcessingException | IllegalArgumentException e) {
@@ -176,16 +219,115 @@ public class EnrichmentPipeline {
     public AddedCharacteristic addFromText(String text) {
         Recipe recipe = TextRecipes.parse(text).orElseThrow(() -> new BusinessRuleException(
                 "Не поняли, что искать на карте. Назовите объект: «аптека в 5 минутах», «нет ночных клубов рядом», «много кафе рядом»"));
+        String json;
         try {
-            repo.saveCustom(new FactRepository.Custom(recipe.code(), recipe.title(), text.strip(), mapper.writeValueAsString(recipe),
-                    clock.instant()));
+            json = mapper.writeValueAsString(recipe);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);
         }
+        Optional<String> missing = coverage().flatMap(c -> c.missing(recipe.filter()));
+        if (missing.isPresent()) {
+            // агент данных: объектов нет в снимке — не считаем, а предлагаем админу докачать
+            repo.saveCustom(new FactRepository.Custom(recipe.code(), recipe.title(), text.strip(), json, clock.instant(),
+                    FactRepository.Custom.NEEDS_DATA));
+            repo.deleteFacts(recipe.code());
+            SourceRequest request = repo.openRequest(missing.get()).orElseGet(() -> propose(recipe, missing.get()));
+            events.publishEvent(new HotelFactsUpdated(0, "характеристика ждёт данных"));
+            return new AddedCharacteristic(recipe, null, 0, request);
+        }
+        repo.saveCustom(new FactRepository.Custom(recipe.code(), recipe.title(), text.strip(), json, clock.instant(),
+                FactRepository.Custom.ACTIVE));
         PipelineRun run = run("новая характеристика «" + recipe.title() + "»");
-        long yes = repo.facts(repo.sites(props).stream().map(Site::hotelId).toList()).stream()
-                .filter(f -> recipe.code().equals(f.code()) && "YES".equals(f.level())).count();
-        return new AddedCharacteristic(recipe, run, (int) yes);
+        return new AddedCharacteristic(recipe, run, yesCount(recipe.code()), null);
+    }
+
+    private int yesCount(String code) {
+        return (int) repo.facts(repo.sites(props).stream().map(Site::hotelId).toList()).stream()
+                .filter(f -> code.equals(f.code()) && "YES".equals(f.level())).count();
+    }
+
+    // ------------------------------------------------------------------ агент данных
+
+    private SourceRequest propose(Recipe recipe, String missing) {
+        String reason = "Чтобы посчитать «" + recipe.title() + "», нужны объекты OpenStreetMap «" + missing + "» (" + recipe.noun()
+                + "), а в снимке региона их нет — мы их не выгружали. Если посчитать сейчас, у всех отелей выйдет «рядом нет», "
+                + "и это будет неправдой. Предлагаю скачать из открытого Overpass API только эти объекты в границах региона «"
+                + props.region() + "» (данные OpenStreetMap, лицензия ODbL).";
+        SourceRequest request = new SourceRequest(UUID.randomUUID(), recipe.code(), missing,
+                OverpassQuery.build(missing, props.south(), props.west(), props.north(), props.east()), reason,
+                SourceRequest.Status.PENDING, clock.instant(), null, null, null, null);
+        repo.saveRequest(request);
+        log.info("Data agent: proposed to fetch {} for {}", missing, recipe.code());
+        return request;
+    }
+
+    /** Админ одобрил: скачиваем, кладём в базу, включаем характеристики, которым хватает данных, и пересчитываем. */
+    public Decision approve(UUID id, String by) {
+        SourceRequest request = open(id);
+        String who = by == null || by.isBlank() ? "администратор" : by.strip();
+        OsmSnapshot fetched;
+        OsmSourceFetcher.Fetched response;
+        try {
+            response = fetcher.fetch(request.query());
+            fetched = loader.parse(response.json());
+        } catch (RuntimeException e) {
+            repo.decide(id, SourceRequest.Status.FAILED, who, clock.instant(), null, e.getMessage(), null);
+            log.warn("Data agent: fetch of {} failed: {}", request.filter(), e.toString());
+            return new Decision(repo.request(id).orElseThrow(), null, List.of());
+        }
+        OsmFilter filter = OsmFilter.parse(request.filter());
+        int found = (int) fetched.elements().stream().filter(filter).count();
+        repo.decide(id, SourceRequest.Status.FETCHED, who, clock.instant(), found,
+                found == 0 ? "скачано с " + response.server() + ": таких объектов в регионе нет — теперь это проверенный факт"
+                        : "скачано с " + response.server() + ": объектов — " + found, response.json());
+        snapshot.set(null);
+        DataCoverage now = coverage().orElse(null);
+        List<String> activated = new ArrayList<>();
+        for (FactRepository.Custom c : repo.customs()) {
+            if (FactRepository.Custom.NEEDS_DATA.equals(c.status()) && (now == null || now.missing(recipeOf(c).filter()).isEmpty())) {
+                repo.setCustomStatus(c.code(), FactRepository.Custom.ACTIVE);
+                activated.add(c.title());
+            }
+        }
+        PipelineRun run = run("агент данных: докачаны объекты «" + request.filter() + "»");
+        return new Decision(repo.request(id).orElseThrow(), run, activated);
+    }
+
+    /** Админ отклонил: ничего не скачиваем, характеристики, которые ждали этих данных, убираем. */
+    public Decision reject(UUID id, String by) {
+        SourceRequest request = open(id);
+        List<String> removed = new ArrayList<>();
+        Optional<DataCoverage> now = coverage();
+        for (FactRepository.Custom c : repo.customs()) {
+            if (FactRepository.Custom.NEEDS_DATA.equals(c.status())
+                    && now.flatMap(cov -> cov.missing(recipeOf(c).filter())).map(request.filter()::equals).orElse(false)) {
+                repo.deleteCustom(c.code());
+                removed.add(c.title());
+            }
+        }
+        repo.decide(id, SourceRequest.Status.REJECTED, by == null || by.isBlank() ? "администратор" : by.strip(), clock.instant(),
+                null, removed.isEmpty() ? "отклонено" : "отклонено — без данных не считаем: " + String.join(", ", removed), null);
+        return new Decision(repo.request(id).orElseThrow(), null, removed);
+    }
+
+    public List<SourceRequest> sourceRequests() {
+        return repo.requests(20);
+    }
+
+    private SourceRequest open(UUID id) {
+        SourceRequest request = repo.request(id).orElseThrow(() -> new NotFoundException("Заявка " + id + " не найдена"));
+        if (request.status() != SourceRequest.Status.PENDING && request.status() != SourceRequest.Status.FAILED) {
+            throw new BusinessRuleException("По заявке уже есть решение: " + request.status());
+        }
+        return request;
+    }
+
+    private Recipe recipeOf(FactRepository.Custom c) {
+        try {
+            return mapper.readValue(c.recipe(), Recipe.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Сломанный рецепт " + c.code(), e);
+        }
     }
 
     public List<Map<String, Object>> customs() {
@@ -193,7 +335,7 @@ public class EnrichmentPipeline {
         Map<String, Integer> counts = repo.factCounts();
         for (FactRepository.Custom c : repo.customs()) {
             result.add(Map.of("code", c.code(), "title", c.title(), "sourceText", c.sourceText(), "recipe", c.recipe(),
-                    "hotels", counts.getOrDefault(c.code(), 0)));
+                    "hotels", counts.getOrDefault(c.code(), 0), "status", c.status()));
         }
         return result;
     }
@@ -257,7 +399,18 @@ public class EnrichmentPipeline {
         return result;
     }
 
-    /** Результат добавления характеристики: рецепт, пересчёт и у скольких отелей ответ «да». */
-    public record AddedCharacteristic(Recipe recipe, PipelineRun run, int hotelsWithYes) {
+    /**
+     * Результат добавления характеристики: рецепт, пересчёт и у скольких отелей ответ «да».
+     * Если данных в снимке нет — {@code run} пуст, а {@code dataRequest} — заявка агента данных на одобрение.
+     */
+    public record AddedCharacteristic(Recipe recipe, PipelineRun run, int hotelsWithYes, SourceRequest dataRequest) {
+
+        public boolean needsData() {
+            return dataRequest != null;
+        }
+    }
+
+    /** Решение по заявке агента: заявка, пересчёт (если был) и какие характеристики включены или убраны. */
+    public record Decision(SourceRequest request, PipelineRun run, List<String> characteristics) {
     }
 }

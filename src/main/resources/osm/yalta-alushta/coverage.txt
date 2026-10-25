@@ -1,0 +1,14 @@
+# Что выгружено в снимок — те же фильтры, что в tools/osm/*.overpassql.
+# По объектам, которых здесь нет, пайплайн не делает выводов «рядом нет»: агент данных предложит их докачать.
+tourism=hotel|guest_house|apartment|hostel|motel
+amenity=cafe|restaurant|fast_food|bar|pub|nightclub|pharmacy|hospital|clinic
+shop=supermarket|convenience|mall|marketplace
+highway=bus_stop
+public_transport=platform
+tourism=attraction|museum|viewpoint
+historic=castle|palace|monument|memorial
+landuse=construction
+leisure=park|garden|nature_reserve
+highway=motorway|trunk|primary|secondary|tertiary|steps
+natural=coastline|beach
+leisure=beach_resort

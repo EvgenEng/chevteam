@@ -205,6 +205,12 @@
   .checks li { padding: 8px 10px; border-radius: var(--radius-sm); background: var(--paper); font-size: 14px; }
   .checks li.DISPUTED { background: #FDEDEC; }
   .checks li.CONFIRMED { background: #E8F5EE; }
+  .agent-card { border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 10px; font-size: 14px; }
+  .agent-card.PENDING, .agent-card.FAILED { border-color: var(--ink); }
+  .agent-card p { margin: 0 0 8px; }
+  .agent-card pre { white-space: pre-wrap; word-break: break-word; background: var(--paper); padding: 8px; border-radius: 6px; font-size: 12px; margin: 6px 0 0; }
+  .agent-card .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .agent-status { font-weight: 600; }
   .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px; margin: 22px 0; }
   .panel h2 { font: 700 20px/1.2 "Unbounded", sans-serif; margin: 0 0 6px; }
   .panel .lead { color: var(--muted); margin: 0 0 14px; }
@@ -358,6 +364,12 @@
         <button class="primary" type="submit">Добавить и посчитать</button></form>
       <div id="ad-msg" aria-live="polite" style="margin-top:10px"></div>
       <div id="ad-custom" style="margin-top:12px"></div>
+    </div>
+    <div class="panel" id="ad-agent-panel">
+      <h2>Агент данных</h2>
+      <p class="lead">Следит, чтобы выводы опирались на данные. Если для характеристики в снимке OpenStreetMap нет нужных объектов,
+        агент не пишет «рядом нет», а предлагает их докачать. Ничего не скачивается без вашего решения.</p>
+      <div id="ad-agent"></div>
     </div>
     <div class="panel">
       <h2>Что известно об отелях региона</h2>
@@ -1321,8 +1333,10 @@
            расхождений с заявлениями отелей — ${run.disputes}.<br><span class="kind">${esc(run.source)} · ${esc(run.message || '')}</span>`
         : 'Пересчёта ещё не было.');
       document.getElementById('ad-custom').innerHTML = s.custom.length ? '<p class="hint">Добавленные характеристики:</p><ul class="checks">' +
-        s.custom.map(c => `<li><b>${esc(c.title)}</b> <span class="kind">· ${esc(c.code)} · посчитано для ${c.hotels} отелей</span>
+        s.custom.map(c => `<li><b>${esc(c.title)}</b> <span class="kind">· ${esc(c.code)} · ${c.status === 'NEEDS_DATA'
+          ? 'ждёт данных — решение в блоке «Агент данных»' : 'посчитано для ' + c.hotels + ' отелей'}</span>
           <button class="linkish" type="button" data-del="${esc(c.code)}">удалить</button></li>`).join('') + '</ul>' : '';
+      renderAgent(s.sources || []);
       document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await api('/api/v1/admin/characteristics/' + b.dataset.del, { method: 'DELETE' }); loadAdmin(); });
       document.getElementById('ad-facts').innerHTML = '<table class="kv-table"><tr><th>Характеристика</th><th>Отелей</th></tr>' +
         Object.entries(s.facts).map(([k, n]) => `<tr><td>${esc(FACT_TITLE[k] || CLAIM_TITLE[k] || (s.custom.find(c => c.code === k) || {}).title || k)}</td><td>${n}</td></tr>`).join('') + '</table>';
@@ -1346,11 +1360,63 @@
     try {
       const r = await api('/api/v1/admin/characteristics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
       const TOOL = { NEAREST: 'ближайший объект', COUNT: 'сколько объектов', ABSENT: 'нет объектов' };
+      if (r.dataRequest) {
+        msg.innerHTML = `<div class="alert info">Правило «${esc(r.recipe.title)}» собрано, но считать пока не на чем: в снимке нет объектов
+          <code>${esc(r.dataRequest.filter)}</code>. Агент данных предложил их докачать — решение ниже.</div>`;
+        await loadAdmin();
+        document.getElementById('ad-agent-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
       msg.innerHTML = `<div class="alert ok">Готово: «${esc(r.recipe.title)}» — ${TOOL[r.recipe.tool]} <code>${esc(r.recipe.filter)}</code> в радиусе ${r.recipe.radius} м.
         Ответ «да» у ${r.hotelsWithYes} из ${r.run.hotels} отелей.</div>`;
       loadAdmin();
     } catch (err) { msg.innerHTML = `<div class="alert err">${esc(err.message)}</div>`; }
   });
+
+  const AGENT_STATUS = { PENDING: 'Ждёт решения', FETCHED: '✓ Скачано и учтено', FAILED: '⚠ Не скачалось', REJECTED: 'Отклонено' };
+
+  function renderAgent(sources) {
+    const box = document.getElementById('ad-agent');
+    if (!sources.length) {
+      box.innerHTML = '<p class="kind">Заявок нет: для всех характеристик данных хватает.</p>';
+      return;
+    }
+    box.innerHTML = sources.map(r => {
+      const open = r.status === 'PENDING' || r.status === 'FAILED';
+      return `<div class="agent-card ${r.status}">
+        <p><span class="agent-status">${AGENT_STATUS[r.status]}</span> · нужны объекты <code>${esc(r.filter)}</code>
+          <span class="kind">· ${new Date(r.createdAt).toLocaleString('ru-RU')}</span></p>
+        ${open ? `<p>${esc(r.reason)}</p>` : ''}
+        ${r.message ? `<p class="kind">${esc(r.message)}${r.decidedBy ? ' · ' + esc(r.decidedBy) : ''}</p>` : ''}
+        <details><summary class="kind">Запрос к Overpass API</summary><pre>${esc(r.query)}</pre></details>
+        ${open ? `<div class="actions">
+          <button class="primary" type="button" data-approve="${r.id}">${r.status === 'FAILED' ? 'Повторить скачивание' : 'Одобрить и скачать'}</button>
+          <button class="ghost" type="button" data-reject="${r.id}">Отклонить</button></div>
+          <div class="agent-msg" aria-live="polite"></div>` : ''}
+      </div>`;
+    }).join('');
+    box.querySelectorAll('[data-approve]').forEach(b => b.onclick = () => decide(b, 'approve'));
+    box.querySelectorAll('[data-reject]').forEach(b => b.onclick = () => decide(b, 'reject'));
+  }
+
+  async function decide(button, action) {
+    const card = button.closest('.agent-card');
+    const msg = card.querySelector('.agent-msg');
+    card.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    msg.innerHTML = action === 'approve' ? '<p class="kind">Скачиваем из OpenStreetMap и пересчитываем отели региона — до минуты…</p>' : '';
+    try {
+      const d = await api(`/api/v1/admin/sources/${button.dataset[action]}/${action}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ by: 'администратор' }) });
+      const done = d.request.status === 'FETCHED'
+        ? `Скачано, объектов в регионе: ${d.request.elements}. ${d.characteristics.length ? 'Включены: ' + d.characteristics.map(t => esc(t)).join(', ') + '.' : ''}`
+        : d.request.status === 'FAILED' ? 'Серверы OpenStreetMap не ответили — можно повторить позже.' : 'Отклонено.';
+      document.getElementById('ad-msg').innerHTML = `<div class="alert ${d.request.status === 'FAILED' ? 'err' : 'ok'}">${done}</div>`;
+      await loadAdmin();
+    } catch (e) {
+      msg.innerHTML = `<div class="alert err">${esc(e.message)}</div>`;
+      card.querySelectorAll('button').forEach(b => { b.disabled = false; });
+    }
+  }
 
   function alertBox(err) { document.getElementById('ad-status').insertAdjacentHTML('beforeend', `<div class="alert err">${esc(err.message)}</div>`); }
 

@@ -131,22 +131,96 @@ class FactRepository {
     }
 
     List<Custom> customs() {
-        return jdbc.sql("SELECT code, title, source_text, recipe, created_at FROM custom_characteristic ORDER BY created_at")
+        return jdbc.sql("SELECT code, title, source_text, recipe, created_at, status FROM custom_characteristic ORDER BY created_at")
                 .query((rs, n) -> new Custom(rs.getString("code"), rs.getString("title"), rs.getString("source_text"),
-                        rs.getString("recipe"), rs.getTimestamp("created_at").toInstant()))
+                        rs.getString("recipe"), rs.getTimestamp("created_at").toInstant(), rs.getString("status")))
                 .list();
+    }
+
+    void setCustomStatus(String code, String status) {
+        jdbc.sql("UPDATE custom_characteristic SET status = :status WHERE code = :code")
+                .param("status", status).param("code", code).update();
+    }
+
+    // ------------------------------------------------------------------ заявки агента данных
+
+    void saveRequest(SourceRequest r) {
+        jdbc.sql("""
+                        INSERT INTO source_request (id, characteristic_code, filter, query, reason, status, created_at)
+                        VALUES (:id, :code, :filter, :query, :reason, :status, :at)
+                        """)
+                .param("id", r.id()).param("code", r.characteristicCode()).param("filter", cut(r.filter(), 300))
+                .param("query", r.query()).param("reason", cut(r.reason(), 600)).param("status", r.status().name())
+                .param("at", Timestamp.from(r.createdAt()))
+                .update();
+    }
+
+    /** Решение по заявке; {@code data} — скачанный ответ Overpass (хранится в базе, переживает перезапуск). */
+    void decide(UUID id, SourceRequest.Status status, String by, Instant at, Integer elements, String message, String data) {
+        jdbc.sql("""
+                        UPDATE source_request
+                           SET status = :status, decided_by = :by, decided_at = :at, elements = :elements, message = :message,
+                               data = COALESCE(:data, data)
+                         WHERE id = :id
+                        """)
+                .param("status", status.name()).param("by", cut(by, 120)).param("at", Timestamp.from(at))
+                .param("elements", elements).param("message", cut(message, 500)).param("data", data).param("id", id)
+                .update();
+    }
+
+    Optional<SourceRequest> request(UUID id) {
+        return jdbc.sql(REQUEST_SELECT + " WHERE id = :id").param("id", id).query(FactRepository::request).optional();
+    }
+
+    List<SourceRequest> requests(int limit) {
+        return jdbc.sql(REQUEST_SELECT + " ORDER BY created_at DESC LIMIT :limit").param("limit", limit)
+                .query(FactRepository::request).list();
+    }
+
+    /** Открытая заявка на те же объекты — чтобы две характеристики про парковку не плодили две заявки. */
+    Optional<SourceRequest> openRequest(String filter) {
+        return jdbc.sql(REQUEST_SELECT + " WHERE filter = :filter AND status IN ('PENDING', 'FAILED') ORDER BY created_at LIMIT 1")
+                .param("filter", filter).query(FactRepository::request).optional();
+    }
+
+    /** Докачанные источники: фильтр (что покрывают) и ответ Overpass. */
+    List<String[]> fetchedSources() {
+        return jdbc.sql("SELECT filter, data FROM source_request WHERE status = 'FETCHED' AND data IS NOT NULL ORDER BY decided_at")
+                .query((rs, n) -> new String[] {rs.getString("filter"), rs.getString("data")})
+                .list();
+    }
+
+    private static final String REQUEST_SELECT = """
+            SELECT id, characteristic_code, filter, query, reason, status, created_at, decided_at, decided_by, elements, message
+              FROM source_request""";
+
+    private static SourceRequest request(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
+        Timestamp decided = rs.getTimestamp("decided_at");
+        return new SourceRequest(rs.getObject("id", UUID.class), rs.getString("characteristic_code"), rs.getString("filter"),
+                rs.getString("query"), rs.getString("reason"), SourceRequest.Status.valueOf(rs.getString("status")),
+                rs.getTimestamp("created_at").toInstant(), decided == null ? null : decided.toInstant(), rs.getString("decided_by"),
+                (Integer) rs.getObject("elements"), rs.getString("message"));
     }
 
     void saveCustom(Custom c) {
         jdbc.sql("""
-                        INSERT INTO custom_characteristic (code, title, source_text, recipe, created_at)
-                        VALUES (:code, :title, :text, :recipe, :at)
+                        INSERT INTO custom_characteristic (code, title, source_text, recipe, created_at, status)
+                        VALUES (:code, :title, :text, :recipe, :at, :status)
                         ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title, source_text = EXCLUDED.source_text,
-                                                         recipe = EXCLUDED.recipe, created_at = EXCLUDED.created_at
+                                                         recipe = EXCLUDED.recipe, created_at = EXCLUDED.created_at,
+                                                         status = EXCLUDED.status
                         """)
                 .param("code", c.code()).param("title", cut(c.title(), 120)).param("text", cut(c.sourceText(), 300))
-                .param("recipe", c.recipe()).param("at", Timestamp.from(c.createdAt()))
+                .param("recipe", c.recipe()).param("at", Timestamp.from(c.createdAt())).param("status", c.status())
                 .update();
+    }
+
+    void deleteFacts(String code) {
+        jdbc.sql("DELETE FROM hotel_fact WHERE code = :code").param("code", code).update();
+    }
+
+    List<String> fetchedFilters() {
+        return jdbc.sql("SELECT filter FROM source_request WHERE status = 'FETCHED' ORDER BY decided_at").query(String.class).list();
     }
 
     boolean deleteCustom(String code) {
@@ -192,7 +266,11 @@ class FactRepository {
     record Claim(UUID hotelId, String code, String level, String text, String author, Instant declaredAt) {
     }
 
-    record Custom(String code, String title, String sourceText, String recipe, Instant createdAt) {
+    /** @param status {@code ACTIVE} — считается; {@code NEEDS_DATA} — ждёт, пока админ одобрит докачку объектов */
+    record Custom(String code, String title, String sourceText, String recipe, Instant createdAt, String status) {
+
+        static final String ACTIVE = "ACTIVE";
+        static final String NEEDS_DATA = "NEEDS_DATA";
     }
 
     static List<UUID> ids(Collection<UUID> ids) {

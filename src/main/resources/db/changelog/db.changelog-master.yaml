@@ -182,3 +182,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: true
+  - changeSet:
+      id: 020-source-requests
+      author: chevteam
+      changes:
+        - sqlFile:
+            path: sql/020-source-requests.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true

@@ -4,13 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
+import ru.chevteam.onestep.enrichment.internal.osm.DataCoverage;
 import ru.chevteam.onestep.enrichment.internal.osm.OsmElement;
 import ru.chevteam.onestep.enrichment.internal.osm.OsmJsonParser;
 import ru.chevteam.onestep.enrichment.internal.osm.OsmSnapshot;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,6 +55,30 @@ class OsmSnapshotLoader {
             return new Loaded(new OsmSnapshot(all, takenAt), "OpenStreetMap: " + String.join(", ", names));
         } catch (IOException e) {
             throw new UncheckedIOException("Не удалось прочитать снимок OSM " + props.snapshot(), e);
+        }
+    }
+
+    /** Манифест покрытия снимка или {@code null}, если его нет (тогда агент данных молчит, как раньше). */
+    DataCoverage loadCoverage() {
+        Resource r = new PathMatchingResourcePatternResolver().getResource(props.coverage());
+        if (!r.exists()) {
+            return null;
+        }
+        try (InputStream in = r.getInputStream()) {
+            List<String> filters = new String(in.readAllBytes(), StandardCharsets.UTF_8).lines()
+                    .map(String::strip).filter(l -> !l.isEmpty() && !l.startsWith("#")).toList();
+            return DataCoverage.of(filters);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Не удалось прочитать покрытие снимка " + props.coverage(), e);
+        }
+    }
+
+    /** Источник, докачанный агентом данных: тот же формат Overpass JSON. */
+    OsmSnapshot parse(String json) {
+        try {
+            return parser.parse(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Ответ Overpass не похож на JSON OpenStreetMap", e);
         }
     }
 

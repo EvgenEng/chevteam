@@ -1,6 +1,9 @@
 package ru.chevteam.onestep.enrichment.internal.osm;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.TreeSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -47,7 +50,26 @@ public final class OsmFilter implements Predicate<OsmElement> {
         }
         Set<String> set = values.equals("*") ? Set.of()
                 : Arrays.stream(values.split("\\|")).map(String::strip).filter(v -> !v.isEmpty()).collect(Collectors.toSet());
+        for (String v : set) {
+            // значения попадают в запрос к Overpass — только безопасные символы, никаких кавычек и скобок
+            if (!v.matches("[a-z0-9_:.\\-]{1,40}")) {
+                throw new IllegalArgumentException("Недопустимое значение OSM: " + v);
+            }
+        }
         return new Rule(key, set);
+    }
+
+    /** Ключ → допустимые значения; пустое множество — «любое значение» ({@code shop=*}). */
+    public Map<String, Set<String>> rules() {
+        Map<String, Set<String>> result = new LinkedHashMap<>();
+        for (Rule r : rules) {
+            if (r.values().isEmpty() || (result.containsKey(r.key()) && result.get(r.key()).isEmpty())) {
+                result.put(r.key(), Set.of());
+            } else {
+                result.computeIfAbsent(r.key(), k -> new TreeSet<>()).addAll(r.values());
+            }
+        }
+        return result;
     }
 
     @Override

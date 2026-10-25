@@ -64,6 +64,8 @@ app:
     west: 33.95
     north: 44.72
     east: 34.46
+    # что выгружено в снимок; по остальному агент данных предложит админу докачать объекты из Overpass API
+    coverage: classpath:osm/yalta-alushta/coverage.txt
   search:
     # не 100 отелей, а 3–5 лучших: больше человек не сравнивает (совет организаторов трека)
     max-results: 5

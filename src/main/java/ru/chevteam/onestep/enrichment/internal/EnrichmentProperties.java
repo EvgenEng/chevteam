@@ -8,10 +8,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param region       как называть проработанный регион в интерфейсе
  * @param south        граница региона (широта, юг)
  * @param dem          карта высот SRTM, вырезанная {@code tools/dem/crop.py}; нет файла — характеристики рельефа пропускаются
+ * @param coverage     какие объекты OSM выгружены в снимок (манифест рядом со снимком)
+ * @param overpass     серверы Overpass API, откуда агент данных докачивает недостающие объекты после одобрения админа
  */
 @ConfigurationProperties(prefix = "app.enrichment")
 public record EnrichmentProperties(Boolean runOnStartup, String snapshot, String region,
-                                   Double south, Double west, Double north, Double east, String dem) {
+                                   Double south, Double west, Double north, Double east, String dem,
+                                   String coverage, java.util.List<String> overpass) {
 
     public EnrichmentProperties {
         runOnStartup = runOnStartup == null || runOnStartup;
@@ -22,5 +25,11 @@ public record EnrichmentProperties(Boolean runOnStartup, String snapshot, String
         north = north == null ? 44.72 : north;
         east = east == null ? 34.46 : east;
         dem = dem == null ? "classpath:dem/yalta-alushta.dem.gz" : dem;
+        coverage = coverage == null ? "classpath:osm/yalta-alushta/coverage.txt" : coverage;
+        overpass = overpass == null || overpass.isEmpty() ? java.util.List.of(
+                "https://overpass-api.de/api/interpreter",
+                "https://overpass.private.coffee/api/interpreter",
+                "https://overpass.kumi.systems/api/interpreter",
+                "https://maps.mail.ru/osm/tools/overpass/api/interpreter") : java.util.List.copyOf(overpass);
     }
 }

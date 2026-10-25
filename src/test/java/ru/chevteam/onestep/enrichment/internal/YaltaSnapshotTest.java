@@ -28,7 +28,7 @@ class YaltaSnapshotTest {
     @BeforeAll
     static void load() {
         OsmSnapshotLoader loader = new OsmSnapshotLoader(new ObjectMapper(),
-                new EnrichmentProperties(false, null, null, null, null, null, null, null));
+                new EnrichmentProperties(false, null, null, null, null, null, null, null, null, null));
         osm = loader.load().snapshot();
         dem = loader.loadDem();
     }

@@ -7,12 +7,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import ru.chevteam.onestep.enrichment.OsmSourceFetcher;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** Пайплайн на настоящем PostGIS: снимок OSM → факты → поиск → сверка заявления отельера. */
 @SpringBootTest(properties = {"app.llm.provider=none", "app.enrichment.run-on-startup=false"})
 @AutoConfigureMockMvc
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, EnrichmentApiIntegrationTest.FakeOverpass.class})
 class EnrichmentApiIntegrationTest {
 
     @Autowired
@@ -100,6 +105,67 @@ class EnrichmentApiIntegrationTest {
                 .content(json.writeValueAsString(Map.of("query", "Алушта у моря на 5 ночей"))), 200);
         assertThat(search.get("hotels")).isNotEmpty()
                 .allSatisfy(h -> assertThat(h.get("dataSource").asText()).isEqualTo("OSM"));
+    }
+
+    @Test
+    void dataAgentAsksBeforeFetchingObjectsTheSnapshotLacks() throws Exception {
+        JsonNode added = call(post("/api/v1/admin/characteristics").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"text\":\"детская площадка рядом\"}"), 202);
+        assertThat(added.at("/dataRequest/status").asText()).isEqualTo("PENDING");
+        assertThat(added.at("/dataRequest/filter").asText()).isEqualTo("leisure=playground");
+        assertThat(added.at("/dataRequest/query").asText()).contains("nwr[\"leisure\"=\"playground\"]");
+        String code = added.at("/recipe/code").asText();
+        String id = added.at("/dataRequest/id").asText();
+
+        // пока админ не решил — фактов нет: «площадки рядом нет» было бы неправдой
+        assertThat(codes(hotel("Бристоль"))).doesNotContain(code);
+
+        JsonNode decision = call(post("/api/v1/admin/sources/" + id + "/approve").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"by\":\"тест\"}"), 200);
+        assertThat(decision.at("/request/status").asText()).isEqualTo("FETCHED");
+        assertThat(decision.at("/request/elements").asInt()).isEqualTo(1);
+        assertThat(decision.get("characteristics").toString()).contains("Детская площадка");
+
+        JsonNode fact = null;
+        for (JsonNode f : call(get("/api/v1/hotels/" + hotel("Бристоль") + "/facts"), 200).get("facts")) {
+            if (code.equals(f.get("code").asText())) {
+                fact = f;
+            }
+        }
+        assertThat(fact).isNotNull();
+        assertThat(fact.get("level").asText()).isEqualTo("YES");
+        assertThat(fact.get("evidence").asText()).contains("Площадка у набережной");
+
+        call(post("/api/v1/admin/sources/" + id + "/approve"), 422);
+    }
+
+    @Test
+    void rejectedRequestDownloadsNothingAndDropsTheCharacteristic() throws Exception {
+        JsonNode added = call(post("/api/v1/admin/characteristics").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"text\":\"заправка в 2 км\"}"), 202);
+        String code = added.at("/recipe/code").asText();
+        JsonNode decision = call(post("/api/v1/admin/sources/" + added.at("/dataRequest/id").asText() + "/reject"), 200);
+        assertThat(decision.at("/request/status").asText()).isEqualTo("REJECTED");
+        assertThat(call(get("/api/v1/admin/enrichment"), 200).get("custom").toString()).doesNotContain(code);
+    }
+
+    private List<String> codes(UUID hotelId) throws Exception {
+        List<String> result = new java.util.ArrayList<>();
+        call(get("/api/v1/hotels/" + hotelId + "/facts"), 200).get("facts").forEach(f -> result.add(f.get("code").asText()));
+        return result;
+    }
+
+    /** Вместо публичного Overpass — одна детская площадка у Бристоля: тест не ходит в интернет. */
+    @TestConfiguration
+    static class FakeOverpass {
+
+        @Bean
+        @Primary
+        OsmSourceFetcher fakeOverpass() {
+            return query -> new OsmSourceFetcher.Fetched("""
+                    {"elements":[{"type":"node","id":1,"lat":44.4968,"lon":34.1722,
+                      "tags":{"leisure":"playground","name":"Площадка у набережной"}}]}""", "test");
+        }
     }
 
     private JsonNode call(MockHttpServletRequestBuilder request, int expected) throws Exception {

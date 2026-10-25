@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,6 +20,7 @@ import ru.chevteam.onestep.enrichment.ClaimCheck;
 import ru.chevteam.onestep.enrichment.HotelFacts;
 import ru.chevteam.onestep.enrichment.internal.EnrichmentPipeline;
 import ru.chevteam.onestep.enrichment.internal.PipelineRun;
+import ru.chevteam.onestep.enrichment.internal.SourceRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -59,14 +61,36 @@ public class EnrichmentController {
     @Operation(summary = "Состояние пайплайна: регион, последние запуски, сколько фактов каждого вида")
     public Map<String, Object> status() {
         return Map.of("region", pipeline.region(), "runs", pipeline.runs(), "facts", pipeline.factCounts(),
-                "custom", pipeline.customs(), "hotels", pipeline.hotels());
+                "custom", pipeline.customs(), "hotels", pipeline.hotels(), "sources", pipeline.sourceRequests());
     }
 
     @PostMapping("/admin/characteristics")
-    @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Добавить характеристику текстом: «аптека в 5 минутах», «нет ночных клубов рядом»")
-    public EnrichmentPipeline.AddedCharacteristic add(@Valid @RequestBody TextRequest request) {
-        return pipeline.addFromText(request.text());
+    @Operation(summary = "Добавить характеристику текстом: «аптека в 5 минутах», «нет ночных клубов рядом»",
+            description = "201 — посчитано для всех отелей региона. 202 — нужных объектов нет в снимке OSM: "
+                    + "агент данных создал заявку на докачку, характеристика посчитается после одобрения админом.")
+    public ResponseEntity<EnrichmentPipeline.AddedCharacteristic> add(@Valid @RequestBody TextRequest request) {
+        EnrichmentPipeline.AddedCharacteristic added = pipeline.addFromText(request.text());
+        return ResponseEntity.status(added.needsData() ? HttpStatus.ACCEPTED : HttpStatus.CREATED).body(added);
+    }
+
+    // ------------------------------------------------------------------ агент данных
+
+    @GetMapping("/admin/sources")
+    @Operation(summary = "Заявки агента данных: каких объектов OSM не хватает и что с ними решили")
+    public List<SourceRequest> sources() {
+        return pipeline.sourceRequests();
+    }
+
+    @PostMapping("/admin/sources/{id}/approve")
+    @Operation(summary = "Одобрить заявку: скачать объекты из Overpass API и пересчитать характеристики")
+    public EnrichmentPipeline.Decision approve(@PathVariable UUID id, @Valid @RequestBody(required = false) DecisionRequest request) {
+        return pipeline.approve(id, request == null ? null : request.by());
+    }
+
+    @PostMapping("/admin/sources/{id}/reject")
+    @Operation(summary = "Отклонить заявку: ничего не скачивать, характеристики без данных не считать")
+    public EnrichmentPipeline.Decision reject(@PathVariable UUID id, @Valid @RequestBody(required = false) DecisionRequest request) {
+        return pipeline.reject(id, request == null ? null : request.by());
     }
 
     @DeleteMapping("/admin/characteristics/{code}")
@@ -88,6 +112,9 @@ public class EnrichmentController {
     @Operation(summary = "Заявление отельера — сохраняется и сразу сверяется с картой")
     public ClaimCheck declare(@PathVariable UUID id, @PathVariable String code, @Valid @RequestBody ClaimRequest request) {
         return pipeline.declare(id, code, request.level(), request.author());
+    }
+
+    public record DecisionRequest(@Size(max = 120) String by) {
     }
 
     public record TextRequest(@NotBlank @Size(max = 200) String text) {
