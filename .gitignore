@@ -6,3 +6,6 @@ target/
 *.log
 logs/
 .env
+
+# сырые тайлы высот SRTM (в проекте — только вырезка региона)
+tools/dem/raw/

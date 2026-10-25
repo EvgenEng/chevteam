@@ -7,10 +7,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param snapshot     откуда читать снимок OpenStreetMap: шаблон ресурсов
  * @param region       как называть проработанный регион в интерфейсе
  * @param south        граница региона (широта, юг)
+ * @param dem          карта высот SRTM, вырезанная {@code tools/dem/crop.py}; нет файла — характеристики рельефа пропускаются
  */
 @ConfigurationProperties(prefix = "app.enrichment")
 public record EnrichmentProperties(Boolean runOnStartup, String snapshot, String region,
-                                   Double south, Double west, Double north, Double east) {
+                                   Double south, Double west, Double north, Double east, String dem) {
 
     public EnrichmentProperties {
         runOnStartup = runOnStartup == null || runOnStartup;
@@ -20,5 +21,6 @@ public record EnrichmentProperties(Boolean runOnStartup, String snapshot, String
         west = west == null ? 33.95 : west;
         north = north == null ? 44.72 : north;
         east = east == null ? 34.46 : east;
+        dem = dem == null ? "classpath:dem/yalta-alushta.dem.gz" : dem;
     }
 }

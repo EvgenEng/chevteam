@@ -233,6 +233,8 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
     private static final Pattern VISA_FREE = p("без\\s?виз\\w*|безвиз\\w*|не нужна виза|виза не нужна|без оформления виз\\w*");
 
     private static final Map<LocationFeature, Pattern> LOCATION_PATTERNS = linkedMap(
+            LocationFeature.SUNSET_VIEW, p("закат\\w*(?:\\s+над\\s+мор\\w*)?|вид\\w* на закат\\w*"),
+            LocationFeature.SEA_VIEW, p("(?:с\\s+)?вид\\w*\\s+на\\s+мор\\w*|морск\\w*\\s+вид\\w*|панорам\\w*\\s+(?:на\\s+)?мор\\w*|видно\\s+мор\\w*"),
             LocationFeature.FIRST_LINE, p("перв\\w* линии?|\\b1(?:-?й)? линии?|на берегу|у (?:самого )?моря|на пляже"),
             LocationFeature.AWAY_FROM_TRAFFIC, p("(?:вдали|подальше|далеко) от (?:(?:оживленн|шумн|больш|загруженн|автомобильн)\\w* )?(?:дорог|трасс|магистрал|шоссе)\\w*"
                     + "|без шума (?:машин|дорог|трафик)\\w*|не у (?:дороги|трассы)|без мотобайк\\w*"),

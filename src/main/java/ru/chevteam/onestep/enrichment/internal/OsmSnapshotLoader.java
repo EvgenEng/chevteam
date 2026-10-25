@@ -55,6 +55,19 @@ class OsmSnapshotLoader {
         }
     }
 
+    /** Карта высот региона или {@code null}, если файла нет. */
+    ru.chevteam.onestep.enrichment.internal.geo.DemGrid loadDem() {
+        Resource r = new PathMatchingResourcePatternResolver().getResource(props.dem());
+        if (!r.exists()) {
+            return null;
+        }
+        try (InputStream in = r.getInputStream()) {
+            return ru.chevteam.onestep.enrichment.internal.geo.DemGrid.read(in);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Не удалось прочитать карту высот " + props.dem(), e);
+        }
+    }
+
     record Loaded(OsmSnapshot snapshot, String description) {
     }
 }

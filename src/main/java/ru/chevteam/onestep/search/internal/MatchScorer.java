@@ -97,6 +97,7 @@ final class MatchScorer {
     static final double W_DIET = 14;
     static final double W_TRANSIT = 12;
     static final double W_FOOD_NEARBY = 8;
+    static final double W_VIEW = 12;
 
     static final int YOUNG_CHILD_AGE = 10;
     static final int STROLLER_AGE = 3;
@@ -164,6 +165,7 @@ final class MatchScorer {
         scoreTransit(t, intent, hotel);
         scoreFoodNearby(t, intent, hotel);
         scoreVerified(t, intent, ctx);
+        scoreView(t, intent, hotel, ctx);
         scoreRating(t, hotel);
         addInfo(t, intent, hotel);
 
@@ -813,6 +815,17 @@ final class MatchScorer {
         boolean slow = intent.needsSlowPace();
         boolean quiet = intent.softPreferences().contains(SoftPreference.QUIET)
                 || intent.locationFeatures().contains(LocationFeature.AWAY_FROM_TRAFFIC);
+        ctx.fact("CLIMB_TO_SEA").ifPresent(f -> {
+            if ("STEEP".equals(f.level()) && (slow || stroller)) {
+                t.add(W_TERRAIN, 0.2, MatchReason.partial("От моря в гору: " + f.value() + " (по карте высот)"));
+            } else if ("MODERATE".equals(f.level()) && (slow || stroller)) {
+                t.add(W_TERRAIN, 0.6, MatchReason.partial("От моря небольшой подъём: " + f.value() + " (по карте высот)"));
+            } else if ("FLAT".equals(f.level()) && (slow || stroller) && intent.wantsBeach()) {
+                t.add(W_TERRAIN, 1, MatchReason.match("К морю почти без подъёма (по карте высот)"));
+            } else if ("STEEP".equals(f.level()) && intent.wantsBeach()) {
+                t.info(MatchReason.info("От моря в гору: " + f.value()));
+            }
+        });
         ctx.fact(STAIRS).ifPresent(f -> {
             if ("MANY".equals(f.level()) && (slow || stroller)) {
                 t.add(W_TERRAIN, 0.2, MatchReason.partial("К морю " + f.value() + " — " + (stroller ? "тяжело с коляской" : "тяжело при больных ногах")
@@ -830,6 +843,11 @@ final class MatchScorer {
                     .ifPresent(f -> t.add(4, 0.3, MatchReason.partial("Рядом " + lower(f.value()) + " (по карте)")));
         }
         for (ClaimCheck check : ctx.verified().checks()) {
+            if (check.status() == ClaimStatus.DISPUTED && "SEA_VIEW".equals(check.code())
+                    && intent.locationFeatures().contains(LocationFeature.SEA_VIEW)) {
+                t.add(5, 0.2, MatchReason.partial("Отель указывает «" + check.claimed() + "», но по рельефу: " + check.observed()));
+                continue;
+            }
             if (check.status() != ClaimStatus.DISPUTED) {
                 continue;
             }
@@ -847,6 +865,43 @@ final class MatchScorer {
                 t.info(reason);
             }
         }
+    }
+
+    /**
+     * «С видом на море», «закаты»: у реальных отелей — по линии видимости на карте высот,
+     * у демо-карточек — по балкону «с видом на море» из данных отеля.
+     */
+    private static void scoreView(Tally t, SearchIntent intent, HotelCandidate hotel, Context ctx) {
+        for (LocationFeature want : List.of(LocationFeature.SEA_VIEW, LocationFeature.SUNSET_VIEW)) {
+            if (!intent.locationFeatures().contains(want)) {
+                continue;
+            }
+            String code = want == LocationFeature.SEA_VIEW ? "SEA_VIEW" : "SUNSET_VIEW";
+            Optional<HotelFact> fact = ctx.fact(code);
+            if (fact.isPresent()) {
+                HotelFact f = fact.get();
+                switch (f.level()) {
+                    case "YES" -> t.add(W_VIEW, Math.min(1, 0.7 + (f.number() == null ? 0 : f.number()) / 300),
+                            MatchReason.match(cap(f.value()) + " (по карте высот)"));
+                    case "PARTIAL" -> t.add(W_VIEW, 0.5, MatchReason.partial(cap(f.value()) + " (по карте высот)"));
+                    default -> t.add(W_VIEW, 0, MatchReason.miss(cap(f.value()) + " (по карте высот)"));
+                }
+                continue;
+            }
+            boolean balcony = hotel.policies() != null && hotel.policies().features().stream()
+                    .anyMatch(x -> x.available() && x.note() != null && x.note().contains("вид на море"));
+            if (want == LocationFeature.SEA_VIEW && balcony) {
+                t.add(W_VIEW, 0.9, MatchReason.match("Балкон с видом на море (по данным отеля)"));
+            } else if (want == LocationFeature.SEA_VIEW && hotel.beachLine() != null && hotel.beachLine() == 1) {
+                t.add(W_VIEW, 0.6, MatchReason.partial("Первая линия — вид на море вероятен, но отель его не подтвердил"));
+            } else {
+                t.add(W_VIEW, 0.2, MatchReason.partial(want.title() + ": отель не указал, проверить по рельефу нельзя"));
+            }
+        }
+    }
+
+    private static String cap(String s) {
+        return s == null || s.isEmpty() ? "" : Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     private static final String STAIRS = "STAIRS_TO_SEA";

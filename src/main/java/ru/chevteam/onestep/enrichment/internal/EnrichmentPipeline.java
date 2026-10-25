@@ -14,12 +14,14 @@ import ru.chevteam.onestep.enrichment.ClaimStatus;
 import ru.chevteam.onestep.enrichment.FactSource;
 import ru.chevteam.onestep.enrichment.HotelFact;
 import ru.chevteam.onestep.enrichment.HotelFactsUpdated;
+import ru.chevteam.onestep.enrichment.internal.geo.DemGrid;
 import ru.chevteam.onestep.enrichment.internal.osm.OsmSnapshot;
 import ru.chevteam.onestep.enrichment.internal.tools.BuiltIns;
 import ru.chevteam.onestep.enrichment.internal.tools.Characteristic;
 import ru.chevteam.onestep.enrichment.internal.tools.Computed;
 import ru.chevteam.onestep.enrichment.internal.tools.Recipe;
 import ru.chevteam.onestep.enrichment.internal.tools.Site;
+import ru.chevteam.onestep.enrichment.internal.tools.TerrainCharacteristics;
 import ru.chevteam.onestep.enrichment.internal.tools.TextRecipes;
 import ru.chevteam.onestep.shared.error.BusinessRuleException;
 import ru.chevteam.onestep.shared.error.NotFoundException;
@@ -54,6 +56,7 @@ public class EnrichmentPipeline {
     private final Clock clock;
     private final ReentrantLock running = new ReentrantLock();
     private final AtomicReference<OsmSnapshotLoader.Loaded> snapshot = new AtomicReference<>();
+    private final AtomicReference<Optional<DemGrid>> dem = new AtomicReference<>();
 
     EnrichmentPipeline(OsmSnapshotLoader loader, FactRepository repo, EnrichmentProperties props, ObjectMapper mapper,
                        ApplicationEventPublisher events, TransactionTemplate tx, Clock clock) {
@@ -100,7 +103,8 @@ public class EnrichmentPipeline {
             int disputes = (int) checks(sites.stream().map(Site::hotelId).toList()).values().stream()
                     .flatMap(List::stream).filter(c -> c.status() == ClaimStatus.DISPUTED).count();
             PipelineRun run = new PipelineRun(UUID.randomUUID(), started, clock.instant(), loaded.description(), sites.size(), facts,
-                    disputes, reason + ": " + characteristics.size() + " характеристик, снимок OSM от "
+                    disputes, reason + ": " + characteristics.size() + " характеристик" + (dem().isPresent() ? ", с картой высот SRTM" : "")
+                    + ", снимок OSM от "
                     + (loaded.snapshot().takenAt() != null ? loaded.snapshot().takenAt() : "неизвестной даты"));
             repo.logRun(run);
             log.info("Enrichment: {} hotels, {} facts, {} disputes in {} ms", run.hotels(), run.facts(), run.disputes(), run.millis());
@@ -134,6 +138,16 @@ public class EnrichmentPipeline {
         return facts.size();
     }
 
+    private Optional<DemGrid> dem() {
+        Optional<DemGrid> d = dem.get();
+        if (d == null) {
+            d = Optional.ofNullable(loader.loadDem());
+            dem.set(d);
+            log.info("Enrichment: elevation model {}", d.isPresent() ? "loaded" : "not found — terrain characteristics skipped");
+        }
+        return d;
+    }
+
     private OsmSnapshotLoader.Loaded snapshot() {
         OsmSnapshotLoader.Loaded s = snapshot.get();
         if (s == null) {
@@ -145,6 +159,7 @@ public class EnrichmentPipeline {
 
     List<Characteristic> characteristics() {
         List<Characteristic> all = new ArrayList<>(BuiltIns.all());
+        dem().ifPresent(d -> all.addAll(TerrainCharacteristics.all(d)));
         for (FactRepository.Custom c : repo.customs()) {
             try {
                 all.add(mapper.readValue(c.recipe(), Recipe.class).characteristic());

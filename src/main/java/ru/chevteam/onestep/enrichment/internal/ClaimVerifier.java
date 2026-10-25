@@ -4,6 +4,7 @@ import ru.chevteam.onestep.enrichment.ClaimCheck;
 import ru.chevteam.onestep.enrichment.ClaimStatus;
 import ru.chevteam.onestep.enrichment.HotelFact;
 import ru.chevteam.onestep.enrichment.internal.tools.BuiltIns;
+import ru.chevteam.onestep.enrichment.internal.tools.TerrainCharacteristics;
 
 import java.util.List;
 import java.util.Map;
@@ -19,16 +20,18 @@ import java.util.Optional;
 final class ClaimVerifier {
 
     /** Шкалы от лучшего к худшему для гостя. */
-    static final Map<String, List<String>> SCALES = Map.of(
-            BuiltIns.SEA_DISTANCE, List.of("FIRST_LINE", "NEAR", "WALK", "FAR"),
-            BuiltIns.ROAD_NOISE, List.of("LOW", "MEDIUM", "HIGH"),
-            BuiltIns.STAIRS_TO_SEA, List.of("NONE", "SOME", "MANY"),
-            BuiltIns.NIGHTLIFE, List.of("NONE", "SOME", "HIGH"),
-            BuiltIns.CONSTRUCTION, List.of("NO", "YES"),
-            BuiltIns.FOOD_WALK, List.of("MANY", "SOME", "NONE"),
-            BuiltIns.GROCERY, List.of("NEAR", "WALK", "FAR"),
-            BuiltIns.BUS_STOP, List.of("NEAR", "WALK", "FAR"),
-            BuiltIns.GREENERY, List.of("YES", "NO"));
+    static final Map<String, List<String>> SCALES = Map.ofEntries(
+            Map.entry(BuiltIns.SEA_DISTANCE, List.of("FIRST_LINE", "NEAR", "WALK", "FAR")),
+            Map.entry(BuiltIns.ROAD_NOISE, List.of("LOW", "MEDIUM", "HIGH")),
+            Map.entry(BuiltIns.STAIRS_TO_SEA, List.of("NONE", "SOME", "MANY")),
+            Map.entry(BuiltIns.NIGHTLIFE, List.of("NONE", "SOME", "HIGH")),
+            Map.entry(BuiltIns.CONSTRUCTION, List.of("NO", "YES")),
+            Map.entry(BuiltIns.FOOD_WALK, List.of("MANY", "SOME", "NONE")),
+            Map.entry(BuiltIns.GROCERY, List.of("NEAR", "WALK", "FAR")),
+            Map.entry(BuiltIns.BUS_STOP, List.of("NEAR", "WALK", "FAR")),
+            Map.entry(BuiltIns.GREENERY, List.of("YES", "NO")),
+            Map.entry(TerrainCharacteristics.CLIMB_TO_SEA, List.of("FLAT", "MODERATE", "STEEP")),
+            Map.entry(TerrainCharacteristics.SEA_VIEW, List.of("YES", "PARTIAL", "NO")));
 
     /** Что можно заявить в экстранете — и как это звучит для гостя. */
     static final Map<String, Map<String, String>> CLAIMS = Map.of(
@@ -42,7 +45,11 @@ final class ClaimVerifier {
                     "ROCK", "скалистый берег"),
             BuiltIns.NIGHTLIFE, Map.of("NONE", "баров и клубов рядом нет", "SOME", "рядом пара баров", "HIGH", "рядом ночная жизнь"),
             BuiltIns.CONSTRUCTION, Map.of("NO", "строек рядом нет", "YES", "рядом идёт стройка"),
-            BuiltIns.GREENERY, Map.of("YES", "рядом парк", "NO", "парков рядом нет"));
+            BuiltIns.GREENERY, Map.of("YES", "рядом парк", "NO", "парков рядом нет"),
+            TerrainCharacteristics.CLIMB_TO_SEA, Map.of("FLAT", "к морю по ровной дороге", "MODERATE", "к морю небольшой спуск",
+                    "STEEP", "к морю крутой спуск, обратно в гору"),
+            TerrainCharacteristics.SEA_VIEW, Map.of("YES", "номера с видом на море", "PARTIAL", "из части номеров видно море",
+                    "NO", "вида на море нет"));
 
     private ClaimVerifier() {
     }

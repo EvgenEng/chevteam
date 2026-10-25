@@ -65,7 +65,8 @@ app:
     north: 44.72
     east: 34.46
   search:
-    max-results: 10
+    # не 100 отелей, а 3–5 лучших: больше человек не сравнивает (совет организаторов трека)
+    max-results: 5
     budget-tolerance: 0.30
   llm:
     provider: ${LLM_PROVIDER:none}   # none | gigachat | yandexgpt

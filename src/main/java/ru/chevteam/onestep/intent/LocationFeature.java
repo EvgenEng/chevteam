@@ -7,7 +7,9 @@ public enum LocationFeature {
     CAR_ACCESS("Подъезд на машине"),
     SHOPPING("Шопинг рядом"),
     /** Кафе и рестораны в пешей доступности — где позавтракать и поужинать. */
-    FOOD_NEARBY("Кафе рядом");
+    FOOD_NEARBY("Кафе рядом"),
+    SEA_VIEW("Вид на море"),
+    SUNSET_VIEW("Закаты над морем");
 
     private final String title;
 

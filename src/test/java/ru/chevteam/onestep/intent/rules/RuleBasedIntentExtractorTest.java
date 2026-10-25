@@ -453,6 +453,14 @@ class RuleBasedIntentExtractorTest {
         }
 
         @Test
+        void seaViewAndSunsets() {
+            SearchIntent view = extract("Ялта, номер с видом на море");
+            assertThat(view.locationFeatures()).containsExactly(LocationFeature.SEA_VIEW);
+            assertThat(view.beach()).isEmpty();
+            assertThat(extract("Ялта, хочу закаты над морем").locationFeatures()).contains(LocationFeature.SUNSET_VIEW);
+        }
+
+        @Test
         void plainQueryHasNoSpecialNeeds() {
             SearchIntent intent = extract("Турция, всё включено, двое взрослых");
             assertThat(intent.beach()).isEmpty();

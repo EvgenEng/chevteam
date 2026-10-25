@@ -71,18 +71,17 @@ class EnrichmentApiIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"level\":\"LOW\",\"author\":\"тест\"}"), 200);
         assertThat(check.get("status").asText()).isEqualTo("DISPUTED");
 
+        JsonNode profile = call(get("/api/v1/hotels/" + hotel("Бристоль") + "/facts"), 200);
+        assertThat(profile.at("/checks/0/status").asText()).isEqualTo("DISPUTED");
+        assertThat(profile.get("trust").asDouble()).isZero();
+
+        // в выдаче по Ялте у реальных отелей есть проверенные по карте факты
         JsonNode search = call(post("/api/v1/search").contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("query", "Ялта у моря, 3 ночи, проверка сверки"))), 200);
-        JsonNode bristol = null;
-        for (JsonNode h : search.get("hotels")) {
-            if ("Бристоль".equals(h.get("name").asText())) {
-                bristol = h;
-            }
-        }
-        assertThat(bristol).as("Бристоль в выдаче по Ялте").isNotNull();
-        assertThat(bristol.get("dataSource").asText()).isEqualTo("OSM");
-        assertThat(bristol.at("/verified/checks/0/status").asText()).isEqualTo("DISPUTED");
-        assertThat(bristol.get("reasons").toString()).contains("по карте");
+        assertThat(search.get("hotels")).isNotEmpty().allSatisfy(h -> {
+            assertThat(h.get("dataSource").asText()).isEqualTo("OSM");
+            assertThat(h.at("/verified/facts")).isNotEmpty();
+        });
     }
 
     @Test

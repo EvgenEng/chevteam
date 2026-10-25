@@ -188,9 +188,10 @@
   .places .kind { color: var(--muted); font-size: 12px; }
   .places .walk { white-space: nowrap; font-weight: 600; }
   .places .walk.taxi { color: var(--muted); font-weight: 500; }
-  .roles { margin-left: auto; display: flex; gap: 4px; border: 1.5px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface); }
-  .roles button { border: 0; background: none; font: 600 14px/1 "Onest", sans-serif; padding: 8px 14px; border-radius: 999px; color: var(--muted); cursor: pointer; }
-  .roles button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .cabinet { margin: 0 0 0 auto; display: flex; gap: 12px; align-items: center; font: 600 14px/1 "Onest", sans-serif; }
+  .cabinet span { background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 999px; }
+  .cabinet a, footer a { color: var(--muted); }
+  footer nav { margin-bottom: 6px; }
   .badge-real { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
     background: #E6F0FF; color: var(--sea); vertical-align: 2px; }
   .facts-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -216,8 +217,30 @@
   .admin-add input { flex: 1 1 260px; }
   .kv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .kv-table td, .kv-table th { padding: 6px 8px; border-top: 1px solid var(--line); text-align: left; }
-  @media (max-width: 640px) { .claim-row { grid-template-columns: minmax(0, 1fr); } .roles { margin-left: 0; } }
-  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; }
+  @media (max-width: 640px) { .claim-row { grid-template-columns: minmax(0, 1fr); } .cabinet { margin-left: 0; }
+    .cmp-table th[scope=row] { width: 104px; } .cmp-table { min-width: 0; } .cmp-table td { min-width: 120px; } }
+  .picked { margin: 0 0 4px; color: var(--muted); font-size: 15px; }
+  .cmp { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); cursor: pointer; margin-right: auto; }
+  .cmp input { width: 18px; height: 18px; accent-color: var(--sea); }
+  .compare-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000; display: flex; gap: 10px; align-items: center;
+    background: var(--ink); color: #fff; padding: 10px 12px 10px 18px; border-radius: 999px; box-shadow: 0 8px 24px rgba(18, 34, 61, .25);
+    max-width: calc(100vw - 32px); }
+  .compare-bar[hidden] { display: none; }
+  .compare-bar button { border: 0; border-radius: 999px; padding: 8px 14px; font: 600 14px/1 "Onest", sans-serif; cursor: pointer; }
+  .compare-bar .go { background: var(--marker); color: var(--ink); }
+  .compare-bar .clear { background: transparent; color: #fff; text-decoration: underline; padding: 8px 4px; }
+  dialog.compare { border: 2px solid var(--ink); border-radius: var(--radius-lg); padding: 0; width: min(980px, calc(100vw - 32px));
+    max-height: calc(100vh - 40px); color: var(--ink); box-shadow: 8px 8px 0 var(--ink); }
+  dialog.compare::backdrop { background: rgba(18, 34, 61, .45); }
+  .cmp-wrap { overflow-x: auto; }
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 520px; }
+  .cmp-table th, .cmp-table td { padding: 8px 10px; border-top: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .cmp-table th[scope=row] { color: var(--muted); font-weight: 500; width: 170px; position: sticky; left: 0; background: var(--surface); }
+  .cmp-table thead th { font: 700 15px/1.25 "Onest", sans-serif; border-top: 0; }
+  .cmp-table td.best { background: #E8F5EE; font-weight: 600; }
+  .cmp-verdict { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .cmp-verdict li { padding: 8px 10px; background: var(--paper); border-radius: var(--radius-sm); }
+  .diet-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; }
   .tag { font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
   .tag.on { border-color: var(--ok); color: var(--ok); font-weight: 600; }
   .feat { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 14px; }
@@ -263,11 +286,7 @@
   <header>
     <p class="brand">О<b>!</b>дин шаг</p>
     <p class="tagline">Опишите поездку своими словами — подберём отель и объясним выбор</p>
-    <nav class="roles" aria-label="Роль">
-      <button type="button" data-role="guest" aria-pressed="true">Гость</button>
-      <button type="button" data-role="hotelier" aria-pressed="false">Отельер</button>
-      <button type="button" data-role="admin" aria-pressed="false">Админ</button>
-    </nav>
+    <p class="cabinet" id="cabinet" hidden><span id="cabinet-name"></span> <a href="/">← на сайт</a></p>
   </header>
 
   <div id="role-guest">
@@ -285,6 +304,7 @@
     <ul class="examples" aria-label="Примеры запросов">
       <li><button type="button">Ялта в июле, тихий отель у моря, двое взрослых и ребёнок 2 года</button></li>
       <li><button type="button">Ялта на 5 ночей, у моря, с пожилыми родителями</button></li>
+      <li><button type="button">Ялта в сентябре, номер с видом на море, двое взрослых</button></li>
       <li><button type="button">Алушта в августе, у моря, без баров рядом, с детьми 4 и 8 лет</button></li>
       <li><button type="button">Хочу в Турцию на 10 дней в мае, всё включено, отель с аквапарком, двое взрослых и ребёнок 7 лет, до 80 тысяч. Лечу из Москвы, можно с пересадкой но лучше прямой.</button></li>
       <li><button type="button">Ищу отель в Сочи на 7 дней в сентябре, 4 звезды, на первой линии, с завтраком, бюджет до 50 тысяч. Один еду.</button></li>
@@ -345,10 +365,17 @@
     </div>
   </section>
 
+  <div class="compare-bar" id="compare-bar" hidden role="region" aria-label="Сравнение">
+    <span id="compare-count">Выбрано 0</span>
+    <button class="go" type="button" id="compare-go">Сравнить</button>
+    <button class="clear" type="button" id="compare-clear">сбросить</button>
+  </div>
+  <dialog class="compare" id="compare" aria-labelledby="cmp-title"></dialog>
+
   <dialog class="booking" id="booking" aria-labelledby="bk-title"></dialog>
   <dialog class="reviews" id="reviews" aria-labelledby="rv-title"></dialog>
 
-  <footer>Прототип для хакатона Островка, ChevTeam. Цены и отзывы — демо-данные. Карта и окружение отелей © участники OpenStreetMap (ODbL).</footer>
+  <footer><nav aria-label="Кабинеты"><a href="/extranet">Для отельеров</a> · <a href="/admin">Админка</a></nav>Прототип для хакатона Островка, ChevTeam. Цены и отзывы — демо-данные. Карта и окружение отелей © участники OpenStreetMap (ODbL).</footer>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -461,7 +488,16 @@
       drawMap([]);
       return;
     }
-    list.innerHTML = data.hotels.map((h, i) => card(h, i, u.intent)).join('');
+    list.innerHTML = `<p class="picked">Из ${data.totalCandidates} подходящих — ${data.hotels.length} ${plural(data.hotels.length, 'лучший', 'лучших', 'лучших')} под ваш запрос.
+        Отметьте 2–3 отеля, чтобы сравнить их бок о бок.</p>` + data.hotels.map((h, i) => card(h, i, u.intent)).join('');
+    lastResult = data;
+    compareSet.clear();
+    updateCompareBar();
+    list.querySelectorAll('[data-compare]').forEach(cb => cb.addEventListener('change', () => {
+      const i = +cb.dataset.compare;
+      if (cb.checked) compareSet.add(i); else compareSet.delete(i);
+      updateCompareBar();
+    }));
     list.querySelectorAll('[data-rates]').forEach(btn => btn.addEventListener('click', () => toggleRates(btn)));
     list.querySelectorAll('[data-book]').forEach(btn => btn.addEventListener('click', () => openBooking(data.hotels[+btn.dataset.book], u.intent)));
     list.querySelectorAll('button.ghost[data-reviews]').forEach(btn => btn.addEventListener('click', () =>
@@ -495,6 +531,7 @@
             <div class="price"><strong>${rub(h.price.total)}</strong>
               <small>за ${h.price.nights} ${nightsWord(h.price.nights)}, ${rub(h.price.perNight)} в сутки · ${esc(h.roomName)}, ${esc(MEALS[h.mealPlan] || h.mealPlan)}${h.dataSource === 'OSM' ? ' · демо-цена' : ''}${
                 h.price.mealAdded ? ` · доплата за ${esc((MEALS[h.price.mealAdded] || '').toLowerCase())} ${rub(h.price.mealAddedTotal)} уже в цене` : ''}</small></div>
+            <label class="cmp"><input type="checkbox" data-compare="${i}"> Сравнить</label>
             <div class="actions">
               <button class="ghost" type="button" data-reviews="${h.hotelId}" data-kind="hotels" data-title="${esc(h.name)}">Отзывы</button>
               <button class="ghost" type="button" data-rates="${h.hotelId}" aria-expanded="false">Все тарифы</button>
@@ -583,7 +620,7 @@
   function verifiedFact(h) {
     const v = h.verified;
     if (!v || (!v.facts.length && !v.checks.length)) return '';
-    const order = ['SEA_DISTANCE', 'STAIRS_TO_SEA', 'BEACH_SURFACE', 'ROAD_NOISE', 'NIGHTLIFE', 'CONSTRUCTION', 'FOOD_WALK', 'GROCERY', 'BUS_STOP', 'GREENERY', 'SIGHTS'];
+    const order = ['SEA_DISTANCE', 'CLIMB_TO_SEA', 'STAIRS_TO_SEA', 'SEA_VIEW', 'SUNSET_VIEW', 'BEACH_SURFACE', 'ROAD_NOISE', 'NIGHTLIFE', 'CONSTRUCTION', 'FOOD_WALK', 'GROCERY', 'BUS_STOP', 'GREENERY', 'SIGHTS'];
     const rank = c => { const i = order.indexOf(c); return i < 0 ? 99 : i; };
     const rows = v.facts.slice().sort((a, b) => rank(a.code) - rank(b.code)).map(f => `<li>
         <span class="t">${esc(f.title)}: <span style="font-weight:400">${esc(f.value)}</span></span>
@@ -596,7 +633,10 @@
     const sea = v.facts.find(f => f.code === 'SEA_DISTANCE');
     const stairs = v.facts.find(f => f.code === 'STAIRS_TO_SEA');
     const noise = v.facts.find(f => f.code === 'ROAD_NOISE');
-    const sub = [sea ? 'море ' + sea.value.split(' · ')[0] : '', stairs && stairs.level === 'MANY' ? 'лестницы' : '', noise ? noise.value : '',
+    const climb = v.facts.find(f => f.code === 'CLIMB_TO_SEA');
+    const view = v.facts.find(f => f.code === 'SEA_VIEW');
+    const sub = [sea ? 'море ' + sea.value.split(' · ')[0] : '', climb && climb.level === 'STEEP' ? 'в гору +' + Math.round(climb.number) + ' м' : '',
+      stairs && stairs.level === 'MANY' ? 'лестницы' : '', view && view.level === 'YES' ? 'вид на море' : '', noise ? noise.value : '',
       disputed ? '⚠ ' + disputed + ' расхожд.' : (v.checks.length ? '✓ заявления подтверждены' : '')].filter(Boolean).join(' · ');
     return `
       <details class="fact"${disputed ? ' open' : ''}>
@@ -605,7 +645,7 @@
           <ul class="facts-list">${rows}</ul>
           ${checks ? `<p class="hint" style="margin-top:12px">Сверка с данными отеля${v.trust != null ? ` · доверие ${Math.round(v.trust * 100)}%` : ''}:</p><ul class="checks">${checks}</ul>`
             : '<p class="hint" style="margin-top:10px">Отель пока не заполнил данные в экстранете — показываем то, что видно на карте.</p>'}
-          <p class="hint">Источник — OpenStreetMap (© участники OSM, ODbL); посчитано пайплайном, а не угадано моделью.</p>
+          <p class="hint">Источники — OpenStreetMap (© участники OSM, ODbL) и карта высот NASA SRTM; посчитано пайплайном, а не угадано моделью.</p>
         </div>
       </details>`;
   }
@@ -660,7 +700,7 @@
             ${d ? `<dt>Кухня</dt><dd>${esc(d.cuisines.join(', '))}</dd>` : ''}
             ${d && d.note ? `<dt>Важно</dt><dd>${esc(d.note.split(' · ').join('; '))}</dd>` : ''}
           </dl>
-          ${diets ? `<p class="tags" aria-label="Меню">${diets}</p>` : ''}
+          ${diets ? `<p class="diet-tags" aria-label="Меню">${diets}</p>` : ''}
           ${extra ? `<p class="hint" style="margin-top:8px">Можно добавить к тарифу при бронировании:</p><ul class="feat" style="grid-template-columns:1fr">${extra}</ul>` : ''}
           ${cafes ? `<p class="hint" style="margin-top:8px">Где поесть рядом:</p><ul class="places">${cafes}</ul>` : ''}
         </div>
@@ -1098,17 +1138,111 @@
   const fmtDate = d => new Date(d + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
   dlg.addEventListener('close', () => clearInterval(timerId));
 
+  // ------------------------------------------------------------------ сравнение 2–3 отелей
+  const compareSet = new Set();
+  let lastResult = null;
+  const cmpDlg = document.getElementById('compare');
+  const NOISE_RANK = { LOW: 0, MEDIUM: 1, HIGH: 2 };
+  const STAIRS_RANK = { NONE: 0, SOME: 1, MANY: 2 };
+
+  function updateCompareBar() {
+    const bar = document.getElementById('compare-bar');
+    bar.hidden = compareSet.size === 0;
+    document.getElementById('compare-count').textContent = compareSet.size === 1 ? 'Выберите ещё 1–2' : 'Выбрано ' + compareSet.size;
+    document.getElementById('compare-go').disabled = compareSet.size < 2;
+    document.querySelectorAll('[data-compare]').forEach(cb => { cb.disabled = !cb.checked && compareSet.size >= 3; });
+  }
+  document.getElementById('compare-clear').onclick = () => {
+    compareSet.clear();
+    document.querySelectorAll('[data-compare]').forEach(cb => { cb.checked = false; });
+    updateCompareBar();
+  };
+  document.getElementById('compare-go').onclick = () => openCompare([...compareSet].sort().map(i => lastResult.hotels[i]));
+
+  const fact = (h, code) => h.verified && h.verified.facts.find(f => f.code === code);
+  const seaMeters = h => { const f = fact(h, 'SEA_DISTANCE'); return f ? f.number : h.beach ? h.beach.distanceMeters : null; };
+  const airMin = h => { const a = (h.services && h.services.transport || []).filter(t => t.kind === 'AIRPORT'); return a.length ? Math.min(...a.map(t => t.minutes)) : null; };
+  const transit = h => { const t = (h.services && h.services.transport || []).find(x => x.kind === 'METRO'); const b = fact(h, 'BUS_STOP');
+    return t ? { text: esc(t.name) + ' · ' + duration(t.minutes), v: t.minutes } : b && b.number != null ? { text: 'остановка · ' + esc(b.value), v: Math.round(b.number / 75) } : null; };
+  const count = (h, kinds) => h.reasons.filter(r => kinds.includes(r.kind)).length;
+
+  /** Строка сравнения: подпись, значение для показа, число для «кто лучше» и направление. */
+  const ROWS = [
+    { t: 'Совпадение с запросом', show: h => h.matchPercent + '%', v: h => h.matchPercent, better: 'max' },
+    { t: 'Цена за поездку', show: h => rub(h.price.total), v: h => Number(h.price.total), better: 'min' },
+    { t: 'За ночь', show: h => rub(h.price.perNight), v: h => Number(h.price.perNight), better: 'min' },
+    { t: 'Звёзды', show: h => '★'.repeat(h.stars), v: h => h.stars, better: 'max' },
+    { t: 'Оценка гостей', show: h => h.reviewsCount ? h.rating + ' (' + h.reviewsCount + ')' : 'нет оценок', v: h => h.reviewsCount ? Number(h.rating) : null, better: 'max' },
+    { t: 'Питание', show: h => esc(MEALS[h.mealPlan] || h.mealPlan) + (h.price.mealAdded ? ' + ' + esc((MEALS[h.price.mealAdded] || '').toLowerCase()) : '') },
+    { t: 'До моря', show: h => seaMeters(h) == null ? '—' : meters(seaMeters(h)) + ' · ' + Math.max(1, Math.round(seaMeters(h) * 1.25 / 75)) + ' мин', v: seaMeters, better: 'min' },
+    { t: 'Подъём от моря', show: h => { const f = fact(h, 'CLIMB_TO_SEA'); return f ? esc(f.value) : '—'; }, v: h => { const f = fact(h, 'CLIMB_TO_SEA'); return f ? f.number : null; }, better: 'min' },
+    { t: 'Вид на море', show: h => { const f = fact(h, 'SEA_VIEW'); return f ? esc(f.value) : '—'; }, v: h => { const f = fact(h, 'SEA_VIEW'); return f ? f.number : null; }, better: 'max' },
+    { t: 'Лестницы к морю', show: h => { const f = fact(h, 'STAIRS_TO_SEA'); return f ? esc(f.value) : '—'; }, v: h => { const f = fact(h, 'STAIRS_TO_SEA'); return f ? STAIRS_RANK[f.level] : null; }, better: 'min' },
+    { t: 'Шум дорог', show: h => h.surroundings ? esc(cap(NOISE[h.surroundings.roadNoise])) : '—', v: h => h.surroundings ? NOISE_RANK[h.surroundings.roadNoise] : null, better: 'min' },
+    { t: 'Бары и клубы рядом', show: h => { const f = fact(h, 'NIGHTLIFE'); return f ? esc(f.value) : '—'; }, v: h => { const f = fact(h, 'NIGHTLIFE'); return f ? f.number : null; }, better: 'min' },
+    { t: 'Кафе в 5 минутах', show: h => { const f = fact(h, 'FOOD_WALK'); return f ? esc(f.value) : '—'; }, v: h => { const f = fact(h, 'FOOD_WALK'); return f ? f.number : null; }, better: 'max' },
+    { t: 'Метро или остановка', show: h => { const t = transit(h); return t ? t.text : '—'; }, v: h => { const t = transit(h); return t ? t.v : null; }, better: 'min' },
+    { t: 'До аэропорта', show: h => airMin(h) == null ? '—' : '≈' + duration(airMin(h)), v: airMin, better: 'min' },
+    { t: 'Совпало пожеланий', show: h => '✓ ' + count(h, ['MATCH']), v: h => count(h, ['MATCH']), better: 'max' },
+    { t: 'Компромиссы', show: h => count(h, ['PARTIAL', 'MISS']) ? '⚠ ' + count(h, ['PARTIAL', 'MISS']) : 'нет', v: h => count(h, ['PARTIAL', 'MISS']), better: 'min' },
+    { t: 'Расхождения с картой', show: h => { const n = h.verified ? h.verified.checks.filter(c => c.status === 'DISPUTED').length : null; return n == null ? '—' : n ? '⚠ ' + n : 'нет'; },
+      v: h => h.verified ? h.verified.checks.filter(c => c.status === 'DISPUTED').length : null, better: 'min' },
+  ];
+
+  function openCompare(hotels) {
+    const wins = hotels.map(() => []);
+    const body = ROWS.map(r => {
+      const vals = r.v ? hotels.map(r.v) : [];
+      const known = vals.filter(v => v != null && !Number.isNaN(v));
+      let best = null;
+      if (r.better && known.length >= 2 && new Set(known).size > 1) {
+        best = r.better === 'max' ? Math.max(...known) : Math.min(...known);
+      }
+      const cells = hotels.map((h, i) => {
+        const isBest = best != null && vals[i] === best;
+        if (isBest) wins[i].push(r.t.toLowerCase());
+        return `<td class="${isBest ? 'best' : ''}">${r.show(h)}</td>`;
+      }).join('');
+      return `<tr><th scope="row">${esc(r.t)}</th>${cells}</tr>`;
+    }).join('');
+    const top = hotels.reduce((a, b) => (b.matchPercent > a.matchPercent || (b.matchPercent === a.matchPercent && Number(b.price.total) < Number(a.price.total))) ? b : a);
+    const cheapest = hotels.reduce((a, b) => Number(b.price.total) < Number(a.price.total) ? b : a);
+    const verdict = hotels.map((h, i) => `<li><b>${esc(h.name)}</b>${h === top ? ' — <b>лучше всего под ваш запрос</b>' : ''}${
+        h === cheapest && h !== top ? ` — дешевле на ${rub(Number(top.price.total) - Number(h.price.total))}` : ''}${
+        wins[i].length ? '<br><span class="kind">сильнее в: ' + esc(wins[i].slice(0, 5).join(', ')) + '</span>' : ''}</li>`).join('');
+    cmpDlg.innerHTML = `<div class="dlg">
+        <h2 id="cmp-title">Сравнение</h2>
+        <ul class="cmp-verdict">${verdict}</ul>
+        <div class="cmp-wrap"><table class="cmp-table">
+          <thead><tr><th scope="col"></th>${hotels.map(h => `<th scope="col">${esc(h.name)}<br><span class="kind" style="font-weight:400">${esc(h.city)}${h.district ? ', ' + esc(h.district) : ''}</span></th>`).join('')}</tr></thead>
+          <tbody>${body}</tbody></table></div>
+        <p class="hint">Зелёным — лучшее значение в строке. Подъём и вид на море — по карте высот SRTM, лестницы, бары и кафе — по OpenStreetMap.</p>
+        <div class="dlg-foot"><span></span><div class="actions">${hotels.map((h, i) =>
+          `<button class="${h === top ? 'book' : 'ghost'}" type="button" data-cmp-book="${i}">Забронировать ${esc(h.name)}</button>`).join('')}
+          <button class="ghost" type="button" data-close>Закрыть</button></div></div>
+      </div>`;
+    cmpDlg.showModal();
+    cmpDlg.querySelector('[data-close]').onclick = () => cmpDlg.close();
+    cmpDlg.querySelectorAll('[data-cmp-book]').forEach(b => b.onclick = () => {
+      cmpDlg.close();
+      openBooking(hotels[+b.dataset.cmpBook], lastResult.understood.intent);
+    });
+  }
+
   // ------------------------------------------------------------------ роли: гость, отельер, админ
-  const CLAIM_TITLE = { SEA_DISTANCE: 'До моря', ROAD_NOISE: 'Шум дорог', STAIRS_TO_SEA: 'Спуск к морю', BEACH_SURFACE: 'Пляж',
+  const CLAIM_TITLE = { SEA_DISTANCE: 'До моря', CLIMB_TO_SEA: 'Подъём от моря', SEA_VIEW: 'Вид на море', ROAD_NOISE: 'Шум дорог', STAIRS_TO_SEA: 'Спуск к морю', BEACH_SURFACE: 'Пляж',
     NIGHTLIFE: 'Бары и клубы', CONSTRUCTION: 'Стройки рядом', GREENERY: 'Парк рядом' };
   const CHECK_TEXT = { CONFIRMED: '✓ Подтверждено картой', DISPUTED: '⚠ По карте иначе — гость увидит оба варианта', UNVERIFIED: '? Проверить нечем — покажем как заявление отеля' };
+  const FACT_TITLE = { FOOD_WALK: 'Кафе в шаговой доступности', GROCERY: 'Продуктовый рядом', BUS_STOP: 'Остановка транспорта', SIGHTS: 'Достопримечательности рядом', SUNSET_VIEW: 'Закат над морем' };
   let regionHotels = null;
 
-  document.querySelectorAll('.roles button').forEach(b => b.addEventListener('click', () => showRole(b.dataset.role)));
+  const CABINETS = { '/extranet': ['hotelier', 'Кабинет отеля'], '/admin': ['admin', 'Админка'] };
 
-  function showRole(role) {
-    document.querySelectorAll('.roles button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.role === role)));
+  function showRole(role, name) {
     ['guest', 'hotelier', 'admin'].forEach(r => { document.getElementById('role-' + r).hidden = r !== role; });
+    document.getElementById('cabinet').hidden = role === 'guest';
+    document.getElementById('cabinet-name').textContent = name || '';
+    if (role !== 'guest') document.title = name + ' — О!дин шаг';
     if (role === 'hotelier') loadExtranet();
     if (role === 'admin') loadAdmin();
   }
@@ -1191,7 +1325,7 @@
           <button class="linkish" type="button" data-del="${esc(c.code)}">удалить</button></li>`).join('') + '</ul>' : '';
       document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await api('/api/v1/admin/characteristics/' + b.dataset.del, { method: 'DELETE' }); loadAdmin(); });
       document.getElementById('ad-facts').innerHTML = '<table class="kv-table"><tr><th>Характеристика</th><th>Отелей</th></tr>' +
-        Object.entries(s.facts).map(([k, n]) => `<tr><td>${esc(CLAIM_TITLE[k] || k)}</td><td>${n}</td></tr>`).join('') + '</table>';
+        Object.entries(s.facts).map(([k, n]) => `<tr><td>${esc(FACT_TITLE[k] || CLAIM_TITLE[k] || (s.custom.find(c => c.code === k) || {}).title || k)}</td><td>${n}</td></tr>`).join('') + '</table>';
     } catch (e) {
       document.getElementById('ad-status').innerHTML = `<span class="alert err">${esc(e.message)}</span>`;
     }
@@ -1245,6 +1379,8 @@
       else map.setView([55.75, 37.62], 4);
     }, 50);
   }
+  const cabinet = CABINETS[location.pathname.replace(/\/+$/, '')];
+  if (cabinet) showRole(cabinet[0], cabinet[1]);
 })();
 </script>
 </body>

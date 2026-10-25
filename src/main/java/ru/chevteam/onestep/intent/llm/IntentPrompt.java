@@ -32,7 +32,7 @@ final class IntentPrompt {
                   "mealPlan": "ROOM_ONLY" | "BREAKFAST" | "HALF_BOARD" | "FULL_BOARD" | "ALL_INCLUSIVE",
                   "amenities": ["AQUAPARK","POOL","KIDS_CLUB","SPA","PARKING","GYM","RESTAURANT","BAR","MOTO_PARKING","EV_CHARGING","BIKE_RENTAL","MOTO_RENTAL","CAR_RENTAL"],
                   "softPreferences": ["QUIET","CLEAN","GOOD_WIFI"],
-                  "locationFeatures": ["FIRST_LINE","CITY_CENTER","AWAY_FROM_TRAFFIC","CAR_ACCESS","SHOPPING","FOOD_NEARBY"],
+                  "locationFeatures": ["FIRST_LINE","CITY_CENTER","AWAY_FROM_TRAFFIC","CAR_ACCESS","SHOPPING","FOOD_NEARBY","SEA_VIEW","SUNSET_VIEW"],
                   "landmarks": [{"name": "достопримечательность в именительном падеже", "maxWalkMinutes": число}],
                   "originCity": "город вылета",
                   "directFlightPreferred": true/false,
