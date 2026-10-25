@@ -1,5 +1,9 @@
 package ru.chevteam.onestep.search.internal;
 
+import ru.chevteam.onestep.enrichment.ClaimCheck;
+import ru.chevteam.onestep.enrichment.ClaimStatus;
+import ru.chevteam.onestep.enrichment.HotelFact;
+import ru.chevteam.onestep.enrichment.HotelFacts;
 import ru.chevteam.onestep.guide.BeachEntry;
 import ru.chevteam.onestep.guide.BeachInfo;
 import ru.chevteam.onestep.guide.Chance;
@@ -43,6 +47,7 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -158,6 +163,7 @@ final class MatchScorer {
         scoreDiet(t, intent, hotel);
         scoreTransit(t, intent, hotel);
         scoreFoodNearby(t, intent, hotel);
+        scoreVerified(t, intent, ctx);
         scoreRating(t, hotel);
         addInfo(t, intent, hotel);
 
@@ -261,6 +267,9 @@ final class MatchScorer {
             case GOOD_WIFI -> hotel.wifiScore();
         };
         if (score == null) {
+            if (preference == SoftPreference.QUIET && hotel.verifiedByMap()) {
+                scoreQuietByMap(t, hotel);
+            }
             return;
         }
         String label = preference.title() + " — " + score.toPlainString() + " по отзывам";
@@ -271,6 +280,20 @@ final class MatchScorer {
         } else {
             t.add(W_SOFT, 0, MatchReason.miss(preference == SoftPreference.QUIET
                     ? "Бывает шумно — " + score.toPlainString() + " по отзывам" : label));
+        }
+    }
+
+    /** Оценок гостей у отеля ещё нет — тишину оцениваем по дорогам на карте. */
+    private static void scoreQuietByMap(Tally t, HotelCandidate hotel) {
+        Surroundings s = hotel.surroundings();
+        if (s == null) {
+            return;
+        }
+        String why = s.roadNote() != null ? s.roadNote() : "";
+        switch (s.roadNoise()) {
+            case LOW -> t.add(W_SOFT, 1, MatchReason.match("Тихо: оживлённых улиц рядом нет (по карте)"));
+            case MEDIUM -> t.add(W_SOFT, 0.5, MatchReason.partial("Слышно улицу: " + why + " (по карте)"));
+            case HIGH -> t.add(W_SOFT, 0, MatchReason.miss("Шумно: " + why + " (по карте)"));
         }
     }
 
@@ -643,7 +666,8 @@ final class MatchScorer {
                 case MEDIUM -> t.add(W_TRAFFIC, 0.5, MatchReason.partial(s.roadNote() != null ? s.roadNote() : "Городская улица рядом"));
                 case HIGH -> t.add(W_TRAFFIC, 0, MatchReason.miss(s.roadNote() != null ? s.roadNote() : "Оживлённая дорога у отеля"));
             }
-        } else if (s.roadNoise() == Surroundings.Level.HIGH && intent.softPreferences().contains(SoftPreference.QUIET)) {
+        } else if (s.roadNoise() == Surroundings.Level.HIGH && intent.softPreferences().contains(SoftPreference.QUIET)
+                && !hotel.verifiedByMap()) {
             t.add(4, 0.2, MatchReason.partial(s.roadNote() != null ? s.roadNote() : "Оживлённая дорога у отеля"));
         }
         String note = s.accessNote();
@@ -776,6 +800,59 @@ final class MatchScorer {
         return (int) Math.round(5 + meters * 1.3 / 1000 / 25 * 60);
     }
 
+    /**
+     * Факты, которые пайплайн сам нашёл на карте: лестницы к морю, стройки, бары под окнами — и расхождения
+     * с заявлениями отеля. Минус показываем, только когда он важен этому гостю: коляска и пожилые — лестницы,
+     * тишина — бары и стройки. Остальным это справка, а не приговор отелю.
+     */
+    private static void scoreVerified(Tally t, SearchIntent intent, Context ctx) {
+        if (ctx.verified() == null) {
+            return;
+        }
+        boolean stroller = intent.guests().childrenAges().stream().anyMatch(a -> a <= STROLLER_AGE);
+        boolean slow = intent.needsSlowPace();
+        boolean quiet = intent.softPreferences().contains(SoftPreference.QUIET)
+                || intent.locationFeatures().contains(LocationFeature.AWAY_FROM_TRAFFIC);
+        ctx.fact(STAIRS).ifPresent(f -> {
+            if ("MANY".equals(f.level()) && (slow || stroller)) {
+                t.add(W_TERRAIN, 0.2, MatchReason.partial("К морю " + f.value() + " — " + (stroller ? "тяжело с коляской" : "тяжело при больных ногах")
+                        + " (по карте)"));
+            } else if ("NONE".equals(f.level()) && (slow || stroller) && intent.wantsBeach()) {
+                t.add(W_TERRAIN, 1, MatchReason.match("К морю без лестниц (по карте)"));
+            } else if ("MANY".equals(f.level()) && intent.wantsBeach()) {
+                t.info(MatchReason.info("К морю " + f.value()));
+            }
+        });
+        if (quiet || intent.travelStyle() == TravelStyle.FAMILY) {
+            ctx.fact(NIGHTLIFE).filter(f -> "HIGH".equals(f.level()))
+                    .ifPresent(f -> t.add(4, 0.3, MatchReason.partial("Рядом бары: " + lower(f.value()) + " (по карте)")));
+            ctx.fact(CONSTRUCTION).filter(f -> "YES".equals(f.level()))
+                    .ifPresent(f -> t.add(4, 0.3, MatchReason.partial("Рядом " + lower(f.value()) + " (по карте)")));
+        }
+        for (ClaimCheck check : ctx.verified().checks()) {
+            if (check.status() != ClaimStatus.DISPUTED) {
+                continue;
+            }
+            boolean relevant = switch (check.code()) {
+                case "ROAD_NOISE", "NIGHTLIFE", "CONSTRUCTION" -> quiet;
+                case "SEA_DISTANCE", "BEACH_SURFACE" -> intent.wantsBeach();
+                case "STAIRS_TO_SEA" -> slow || stroller || intent.wantsBeach();
+                default -> false;
+            };
+            MatchReason reason = new MatchReason(relevant ? MatchReason.Kind.PARTIAL : MatchReason.Kind.INFO,
+                    "Отель указывает «" + check.claimed() + "», но по карте: " + check.observed());
+            if (relevant) {
+                t.add(5, 0.2, reason);
+            } else {
+                t.info(reason);
+            }
+        }
+    }
+
+    private static final String STAIRS = "STAIRS_TO_SEA";
+    private static final String NIGHTLIFE = "NIGHTLIFE";
+    private static final String CONSTRUCTION = "CONSTRUCTION";
+
     /** «35 мин», «1 ч 20 мин», «2 ч 30 мин». */
     static String duration(int minutes) {
         if (minutes < 60) {
@@ -893,13 +970,24 @@ final class MatchScorer {
      * @param alternatives  другие пляжи города в пределах {@link #ALT_BEACH_RADIUS_M}
      * @param entry         правила въезда для граждан РФ или {@code null}
      * @param wildlife      морские обитатели этого места
+     * @param verified      факты пайплайна и сверка заявлений отеля или {@code null}
      */
     record Context(BeachInfo beach, Integer beachDistanceM, SeasonInfo season, int month, boolean monthExplicit,
-                   List<NearbyBeach> alternatives, EntryInfo entry, List<WildlifeInfo> wildlife) {
-        static final Context NONE = new Context(null, null, null, 1, false, List.of(), null, List.of());
+                   List<NearbyBeach> alternatives, EntryInfo entry, List<WildlifeInfo> wildlife, HotelFacts.Profile verified) {
+        static final Context NONE = new Context(null, null, null, 1, false, List.of(), null, List.of(), null);
 
         Context(BeachInfo beach, SeasonInfo season, int month, boolean monthExplicit) {
-            this(beach, null, season, month, monthExplicit, List.of(), null, List.of());
+            this(beach, null, season, month, monthExplicit, List.of(), null, List.of(), null);
+        }
+
+        Context(BeachInfo beach, Integer beachDistanceM, SeasonInfo season, int month, boolean monthExplicit,
+                List<NearbyBeach> alternatives, EntryInfo entry, List<WildlifeInfo> wildlife) {
+            this(beach, beachDistanceM, season, month, monthExplicit, alternatives, entry, wildlife, null);
+        }
+
+        Optional<HotelFact> fact(String code) {
+            return verified == null ? Optional.empty()
+                    : verified.facts().stream().filter(f -> f.code().equals(code)).findFirst();
         }
 
         Context {

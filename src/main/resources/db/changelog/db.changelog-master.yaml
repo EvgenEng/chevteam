@@ -163,3 +163,22 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: true
+  - changeSet:
+      id: 018-enrichment
+      author: chevteam
+      changes:
+        - sqlFile:
+            path: sql/018-enrichment.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true
+  - changeSet:
+      id: 019-seed-yalta-alushta
+      author: chevteam
+      context: "!prod"
+      changes:
+        - sqlFile:
+            path: sql/019-seed-yalta-alushta.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: true

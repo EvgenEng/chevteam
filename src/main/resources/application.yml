@@ -55,6 +55,15 @@ app:
     max-nights: 30
     expiry-check-interval: 30s
     outbox-retry-interval: 1m
+  enrichment:
+    # пересчитать характеристики отелей региона по снимку OSM при старте (1–2 секунды)
+    run-on-startup: ${ENRICHMENT_ON_STARTUP:true}
+    snapshot: classpath:osm/yalta-alushta/*.json
+    region: Ялта — Алушта
+    south: 44.38
+    west: 33.95
+    north: 44.72
+    east: 34.46
   search:
     max-results: 10
     budget-tolerance: 0.30

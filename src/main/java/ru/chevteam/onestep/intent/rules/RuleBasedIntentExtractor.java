@@ -170,7 +170,7 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
             + "|трансфер\\w*\\s+(?:не\\s+)?(?:больше|более|дольше|до)?\\s*" + DURATION);
 
     private static final Map<SoftPreference, Pattern> SOFT_PATTERNS = linkedMap(
-            SoftPreference.QUIET, p("\\bтих\\w*|\\bспокойн\\w*|без шума|не шумн\\w*"),
+            SoftPreference.QUIET, p("\\bтих\\w*|\\bспокойн\\w*|без шума|не шумн\\w*|без (?:баров|клубов|дискотек|ночной жизни|тусовок)|подальше от (?:баров|клубов|дискотек)"),
             SoftPreference.CLEAN, p("\\bчист\\w*"),
             SoftPreference.GOOD_WIFI, p("wi-?fi|вай-?фай|интернет\\w*"));
 

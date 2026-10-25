@@ -1,5 +1,6 @@
 package ru.chevteam.onestep.search;
 
+import ru.chevteam.onestep.enrichment.HotelFacts;
 import ru.chevteam.onestep.guide.EntryInfo;
 import ru.chevteam.onestep.guide.SeasonInfo;
 import ru.chevteam.onestep.guide.WildlifeInfo;
@@ -17,6 +18,8 @@ import java.util.UUID;
  * @param entry    правила въезда для граждан РФ или {@code null}
  * @param wildlife кого из морских обитателей можно встретить в этом месте
  * @param services как добраться, питание, инфраструктура и кафе рядом
+ * @param dataSource {@code OSM} — реальный отель, характеристики посчитаны пайплайном; {@code DEMO} — демо-карточка
+ * @param verified факты пайплайна с доказательствами и сверка заявлений отеля или {@code null}
  */
 public record HotelMatch(
         UUID hotelId,
@@ -45,5 +48,7 @@ public record HotelMatch(
         EntryInfo entry,
         Surroundings surroundings,
         List<WildlifeInfo> wildlife,
-        HotelServices services) {
+        HotelServices services,
+        String dataSource,
+        HotelFacts.Profile verified) {
 }

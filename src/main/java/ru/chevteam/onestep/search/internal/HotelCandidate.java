@@ -20,7 +20,8 @@ import java.util.UUID;
  *
  * @param beachId  ближайший пляж своего города в пределах 3 км
  * @param shopping ближайший крупный торговый центр в пределах 3 км или {@code null}
- * @param services как добраться, питание, инфраструктура и кафе рядом
+ * @param services   как добраться, питание, инфраструктура и кафе рядом
+ * @param dataSource {@code OSM} — реальный отель проработанного региона, {@code DEMO} — демо-карточка
  */
 public record HotelCandidate(
         UUID id,
@@ -53,12 +54,33 @@ public record HotelCandidate(
         HotelPolicies policies,
         Surroundings surroundings,
         NearbyPlace shopping,
-        HotelServices services) {
+        HotelServices services,
+        String dataSource) {
 
     public HotelCandidate {
         amenities = amenities == null ? Set.of() : Set.copyOf(amenities);
         nearby = nearby == null ? List.of() : List.copyOf(nearby);
         services = services == null ? HotelServices.EMPTY : services;
+        dataSource = dataSource == null ? "DEMO" : dataSource;
+    }
+
+    /** Реальный отель проработанного региона: местность посчитана пайплайном по карте. */
+    public boolean verifiedByMap() {
+        return "OSM".equals(dataSource);
+    }
+
+    /** Совместимость: карточка без указания источника — демо. */
+    public HotelCandidate(UUID id, String name, String country, String region, String city, String district, int stars,
+                          BigDecimal rating, int reviewsCount, GeoPoint location, Integer beachLine, Integer distanceToBeachM,
+                          Integer distanceToCenterM, Integer airportTransferMin, BigDecimal quietScore, BigDecimal cleanScore,
+                          BigDecimal wifiScore, BigDecimal familyScore, String description, Set<Amenity> amenities, Rate rate,
+                          BigDecimal seasonCoefficient, Integer landmarkDistanceM, List<NearbyPlace> nearby,
+                          AccessibilityInfo accessibility, UUID beachId, Integer beachDistanceM, HotelPolicies policies,
+                          Surroundings surroundings, NearbyPlace shopping, HotelServices services) {
+        this(id, name, country, region, city, district, stars, rating, reviewsCount, location, beachLine, distanceToBeachM,
+                distanceToCenterM, airportTransferMin, quietScore, cleanScore, wifiScore, familyScore, description, amenities, rate,
+                seasonCoefficient, landmarkDistanceM, nearby, accessibility, beachId, beachDistanceM, policies, surroundings, shopping,
+                services, null);
     }
 
     public record Rate(UUID rateId, String roomName, MealPlan mealPlan, BigDecimal pricePerNight, boolean refundable) {

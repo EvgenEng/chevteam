@@ -72,7 +72,7 @@ class CandidateRepository {
                      WHERE l.city = h.city AND l.kind = 'SHOPPING' AND ST_DWithin(h.location, l.location, 3000)
                      ORDER BY ST_Distance(h.location, l.location)
                      LIMIT 1) AS shopping,
-                   h.road_noise, h.road_note, h.car_access, h.access_note,
+                   h.road_noise, h.road_note, h.car_access, h.access_note, h.data_source,
                    ARRAY(SELECT t.kind || '|' || t.name || '|' || t.distance_m || '|' || t.minutes || '|' || t.mode
                                    || '|' || COALESCE(t.note, '')
                            FROM hotel_transport t WHERE t.hotel_id = h.id ORDER BY t.kind, t.minutes) AS transport,
@@ -111,7 +111,7 @@ class CandidateRepository {
               LEFT JOIN season_coefficient sc ON sc.city = h.city AND sc.month = :month
               LEFT JOIN hotel_dining hd ON hd.hotel_id = h.id
               %s
-             WHERE TRUE
+             WHERE h.listed
             """;
 
     private final JdbcClient jdbc;
@@ -217,15 +217,24 @@ class CandidateRepository {
             rs.getBigDecimal("season_coefficient"),
             rs.getObject("landmark_distance_m", Integer.class),
             nearby(rs),
-            new AccessibilityInfo(rs.getBoolean("step_free_access"), rs.getBoolean("accessible_room"),
-                    rs.getBoolean("elevator"), Terrain.valueOf(rs.getString("terrain")), rs.getString("accessibility_note")),
+            accessibility(rs),
             rs.getObject("beach_id", UUID.class),
             rs.getObject("beach_distance_m", Integer.class),
             policies(rs),
             new Surroundings(Surroundings.Level.valueOf(rs.getString("road_noise")), rs.getString("road_note"),
                     Surroundings.CarAccess.valueOf(rs.getString("car_access")), rs.getString("access_note")),
             place(rs.getString("shopping")),
-            services(rs));
+            services(rs),
+            rs.getString("data_source"));
+
+    /** У реальных отелей о лифте и ступенях знает только отель: пока не заполнил — «нет данных», а не «нет лифта». */
+    private static AccessibilityInfo accessibility(ResultSet rs) throws SQLException {
+        if ("OSM".equals(rs.getString("data_source"))) {
+            return null;
+        }
+        return new AccessibilityInfo(rs.getBoolean("step_free_access"), rs.getBoolean("accessible_room"),
+                rs.getBoolean("elevator"), Terrain.valueOf(rs.getString("terrain")), rs.getString("accessibility_note"));
+    }
 
     private static HotelServices services(ResultSet rs) throws SQLException {
         List<HotelServices.TransitPoint> transport = new ArrayList<>();

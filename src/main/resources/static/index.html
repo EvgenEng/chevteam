@@ -188,6 +188,35 @@
   .places .kind { color: var(--muted); font-size: 12px; }
   .places .walk { white-space: nowrap; font-weight: 600; }
   .places .walk.taxi { color: var(--muted); font-weight: 500; }
+  .roles { margin-left: auto; display: flex; gap: 4px; border: 1.5px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface); }
+  .roles button { border: 0; background: none; font: 600 14px/1 "Onest", sans-serif; padding: 8px 14px; border-radius: 999px; color: var(--muted); cursor: pointer; }
+  .roles button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .badge-real { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    background: #E6F0FF; color: var(--sea); vertical-align: 2px; }
+  .facts-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .facts-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; }
+  .facts-list .t { font-weight: 600; }
+  .facts-list .why { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+  .conf { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .conf i { display: inline-block; width: 44px; height: 6px; border-radius: 3px; background: var(--line); vertical-align: middle; margin-left: 4px; overflow: hidden; position: relative; }
+  .conf i b { position: absolute; inset: 0 auto 0 0; background: var(--sea); }
+  .checks { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+  .checks li { padding: 8px 10px; border-radius: var(--radius-sm); background: var(--paper); font-size: 14px; }
+  .checks li.DISPUTED { background: #FDEDEC; }
+  .checks li.CONFIRMED { background: #E8F5EE; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px; margin: 22px 0; }
+  .panel h2 { font: 700 20px/1.2 "Unbounded", sans-serif; margin: 0 0 6px; }
+  .panel .lead { color: var(--muted); margin: 0 0 14px; }
+  .claim-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; gap: 8px 12px; align-items: center;
+    padding: 10px 0; border-top: 1px solid var(--line); }
+  .claim-row select, .admin-add input, .hotel-pick select { font: 500 15px/1.3 "Onest", sans-serif; border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm); padding: 8px 10px; background: #fff; min-width: 0; width: 100%; }
+  .claim-row .res { grid-column: 1 / -1; font-size: 14px; }
+  .admin-add { display: flex; gap: 8px; flex-wrap: wrap; }
+  .admin-add input { flex: 1 1 260px; }
+  .kv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .kv-table td, .kv-table th { padding: 6px 8px; border-top: 1px solid var(--line); text-align: left; }
+  @media (max-width: 640px) { .claim-row { grid-template-columns: minmax(0, 1fr); } .roles { margin-left: 0; } }
   .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; }
   .tag { font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
   .tag.on { border-color: var(--ok); color: var(--ok); font-weight: 600; }
@@ -234,7 +263,14 @@
   <header>
     <p class="brand">О<b>!</b>дин шаг</p>
     <p class="tagline">Опишите поездку своими словами — подберём отель и объясним выбор</p>
+    <nav class="roles" aria-label="Роль">
+      <button type="button" data-role="guest" aria-pressed="true">Гость</button>
+      <button type="button" data-role="hotelier" aria-pressed="false">Отельер</button>
+      <button type="button" data-role="admin" aria-pressed="false">Админ</button>
+    </nav>
   </header>
+
+  <div id="role-guest">
 
   <section class="ask" aria-labelledby="ask-title">
     <h1 id="ask-title">Какую поездку вы&nbsp;представляете?</h1>
@@ -247,6 +283,9 @@
       </div>
     </form>
     <ul class="examples" aria-label="Примеры запросов">
+      <li><button type="button">Ялта в июле, тихий отель у моря, двое взрослых и ребёнок 2 года</button></li>
+      <li><button type="button">Ялта на 5 ночей, у моря, с пожилыми родителями</button></li>
+      <li><button type="button">Алушта в августе, у моря, без баров рядом, с детьми 4 и 8 лет</button></li>
       <li><button type="button">Хочу в Турцию на 10 дней в мае, всё включено, отель с аквапарком, двое взрослых и ребёнок 7 лет, до 80 тысяч. Лечу из Москвы, можно с пересадкой но лучше прямой.</button></li>
       <li><button type="button">Ищу отель в Сочи на 7 дней в сентябре, 4 звезды, на первой линии, с завтраком, бюджет до 50 тысяч. Один еду.</button></li>
       <li><button type="button">Куда сходить в Питере на 2 ночи в выходные в январе? Центр, до Эрмитажа пешком минут 15, чисто, тихо, хороший Wi-Fi. До 8000 за двое суток.</button></li>
@@ -272,10 +311,44 @@
     <div class="map" id="map" role="img" aria-label="Отели на карте"></div>
   </section>
 
+  </div>
+
+  <section id="role-hotelier" hidden>
+    <div class="panel">
+      <h2>Экстранет отеля</h2>
+      <p class="lead">Расскажите гостям об отеле. Мы доверяем вашим данным, но сверяем их с картой: расхождение увидит гость —
+        поэтому лучше указать как есть. Подтверждённые данные поднимают отель в выдаче для тех, кому это важно.</p>
+      <label class="hotel-pick">Ваш отель <select id="ex-hotel"></select></label>
+      <p id="ex-score" class="lead" style="margin-top:12px"></p>
+      <div id="ex-claims"></div>
+    </div>
+  </section>
+
+  <section id="role-admin" hidden>
+    <div class="panel">
+      <h2>Пайплайн характеристик</h2>
+      <p class="lead" id="ad-status">Загружаем…</p>
+      <button class="primary" id="ad-run" type="button">Пересчитать по карте</button>
+    </div>
+    <div class="panel">
+      <h2>Добавить характеристику текстом</h2>
+      <p class="lead">Опишите словами — система соберёт правило из готовых инструментов (поиск на карте, расстояние, количество)
+        и посчитает его для всех отелей региона. Например: «аптека в 5 минутах», «нет ночных клубов рядом», «много кафе рядом».</p>
+      <form class="admin-add" id="ad-form"><input id="ad-text" maxlength="200" placeholder="аптека в 5 минутах" required>
+        <button class="primary" type="submit">Добавить и посчитать</button></form>
+      <div id="ad-msg" aria-live="polite" style="margin-top:10px"></div>
+      <div id="ad-custom" style="margin-top:12px"></div>
+    </div>
+    <div class="panel">
+      <h2>Что известно об отелях региона</h2>
+      <div id="ad-facts"></div>
+    </div>
+  </section>
+
   <dialog class="booking" id="booking" aria-labelledby="bk-title"></dialog>
   <dialog class="reviews" id="reviews" aria-labelledby="rv-title"></dialog>
 
-  <footer>Демо для хакатона Островка, команда ChevTeam. Отели в каталоге и отзывы о них вымышленные. Районы, пляжи и достопримечательности настоящие, а климат и сезонные риски — ориентиры, а не гарантия.</footer>
+  <footer>Прототип для хакатона Островка, ChevTeam. Цены и отзывы — демо-данные. Карта и окружение отелей © участники OpenStreetMap (ODbL).</footer>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -398,7 +471,7 @@
 
   function card(h, i, intent) {
     const slow = (intent.access || []).some(a => SLOW_NEEDS.includes(a));
-    const facts = [beachFact(h), wildlifeFact(h), seasonFact(h), nearbyFact(h, slow), transportFact(h, intent), roadFact(h),
+    const facts = [verifiedFact(h), beachFact(h), wildlifeFact(h), seasonFact(h), nearbyFact(h, slow), transportFact(h, intent), roadFact(h),
       diningFact(h, intent), facilityFact(h, intent), policyFact(h, intent), entryFact(h), accessFact(h, intent)]
       .filter(Boolean).join('');
     const visa = h.entry ? `<span class="visa ${VISA_CLASS[h.entry.regime]}" title="${esc(h.entry.summary)}">🛂 ${esc(VISA_SHORT[h.entry.regime])}${
@@ -413,13 +486,14 @@
           <h2>${esc(h.name)}</h2>
           <p class="meta"><span class="stars" aria-label="${h.stars} звёзд">${'★'.repeat(h.stars)}</span>
             ${esc(h.city)}${h.district ? ', ' + esc(h.district) : ''},
-            <span class="rating">${h.rating}</span> по ${h.reviewsCount} отзывам${visa}</p>
+            ${h.reviewsCount ? `<span class="rating">${h.rating}</span> по ${h.reviewsCount} отзывам` : 'оценок пока нет'}${visa}${
+              h.dataSource === 'OSM' ? '<span class="badge-real" title="Реальный отель: окружение посчитано по OpenStreetMap">🛰 реальный отель</span>' : ''}</p>
           <p class="desc">${esc(h.description)}</p>
           <ul class="reasons">${h.reasons.map(r => `<li class="${r.kind}">${esc(r.text)}</li>`).join('')}</ul>
           ${facts ? `<div class="facts">${facts}</div>` : ''}
           <div class="foot">
             <div class="price"><strong>${rub(h.price.total)}</strong>
-              <small>за ${h.price.nights} ${nightsWord(h.price.nights)}, ${rub(h.price.perNight)} в сутки · ${esc(h.roomName)}, ${esc(MEALS[h.mealPlan] || h.mealPlan)}${
+              <small>за ${h.price.nights} ${nightsWord(h.price.nights)}, ${rub(h.price.perNight)} в сутки · ${esc(h.roomName)}, ${esc(MEALS[h.mealPlan] || h.mealPlan)}${h.dataSource === 'OSM' ? ' · демо-цена' : ''}${
                 h.price.mealAdded ? ` · доплата за ${esc((MEALS[h.price.mealAdded] || '').toLowerCase())} ${rub(h.price.mealAddedTotal)} уже в цене` : ''}</small></div>
             <div class="actions">
               <button class="ghost" type="button" data-reviews="${h.hotelId}" data-kind="hotels" data-title="${esc(h.name)}">Отзывы</button>
@@ -503,6 +577,36 @@
         <summary><span aria-hidden="true">📍</span><b>Рядом</b><span class="sum-sub">${mallText(h)}${walkable ? walkable + ' ' + plural(walkable, 'место', 'места', 'мест') + ' в 15 минутах' + (slow ? ' спокойным шагом' : ' пешком') : 'пешком далеко — лучше такси'}</span></summary>
         <div class="fact-body"><ul class="places">${rows}</ul>
           ${slow ? '<p class="hint">Время пешком — спокойным шагом, около 3 км/ч.</p>' : ''}</div>
+      </details>`;
+  }
+
+  function verifiedFact(h) {
+    const v = h.verified;
+    if (!v || (!v.facts.length && !v.checks.length)) return '';
+    const order = ['SEA_DISTANCE', 'STAIRS_TO_SEA', 'BEACH_SURFACE', 'ROAD_NOISE', 'NIGHTLIFE', 'CONSTRUCTION', 'FOOD_WALK', 'GROCERY', 'BUS_STOP', 'GREENERY', 'SIGHTS'];
+    const rank = c => { const i = order.indexOf(c); return i < 0 ? 99 : i; };
+    const rows = v.facts.slice().sort((a, b) => rank(a.code) - rank(b.code)).map(f => `<li>
+        <span class="t">${esc(f.title)}: <span style="font-weight:400">${esc(f.value)}</span></span>
+        <span class="conf" title="Уверенность: насколько полны данные карты">${Math.round(f.confidence * 100)}%<i><b style="width:${Math.round(f.confidence * 100)}%"></b></i></span>
+        <span class="why">${f.evidence && f.evidence !== '—' ? esc(f.evidence) + ' · ' : ''}<i>${esc(f.method)}</i></span></li>`).join('');
+    const STATUS = { CONFIRMED: '✓ подтверждено картой', DISPUTED: '⚠ по карте иначе', UNVERIFIED: '? проверить нечем' };
+    const checks = v.checks.map(c => `<li class="${c.status}"><b>${STATUS[c.status]}</b> — отель указывает «${esc(c.claimed)}»<br>
+        <span class="kind">${esc(c.observed)}</span></li>`).join('');
+    const disputed = v.checks.filter(c => c.status === 'DISPUTED').length;
+    const sea = v.facts.find(f => f.code === 'SEA_DISTANCE');
+    const stairs = v.facts.find(f => f.code === 'STAIRS_TO_SEA');
+    const noise = v.facts.find(f => f.code === 'ROAD_NOISE');
+    const sub = [sea ? 'море ' + sea.value.split(' · ')[0] : '', stairs && stairs.level === 'MANY' ? 'лестницы' : '', noise ? noise.value : '',
+      disputed ? '⚠ ' + disputed + ' расхожд.' : (v.checks.length ? '✓ заявления подтверждены' : '')].filter(Boolean).join(' · ');
+    return `
+      <details class="fact"${disputed ? ' open' : ''}>
+        <summary><span aria-hidden="true">🛰</span><b>Проверено по карте</b><span class="sum-sub">${esc(sub)}</span></summary>
+        <div class="fact-body">
+          <ul class="facts-list">${rows}</ul>
+          ${checks ? `<p class="hint" style="margin-top:12px">Сверка с данными отеля${v.trust != null ? ` · доверие ${Math.round(v.trust * 100)}%` : ''}:</p><ul class="checks">${checks}</ul>`
+            : '<p class="hint" style="margin-top:10px">Отель пока не заполнил данные в экстранете — показываем то, что видно на карте.</p>'}
+          <p class="hint">Источник — OpenStreetMap (© участники OSM, ODbL); посчитано пайплайном, а не угадано моделью.</p>
+        </div>
       </details>`;
   }
 
@@ -993,6 +1097,128 @@
 
   const fmtDate = d => new Date(d + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
   dlg.addEventListener('close', () => clearInterval(timerId));
+
+  // ------------------------------------------------------------------ роли: гость, отельер, админ
+  const CLAIM_TITLE = { SEA_DISTANCE: 'До моря', ROAD_NOISE: 'Шум дорог', STAIRS_TO_SEA: 'Спуск к морю', BEACH_SURFACE: 'Пляж',
+    NIGHTLIFE: 'Бары и клубы', CONSTRUCTION: 'Стройки рядом', GREENERY: 'Парк рядом' };
+  const CHECK_TEXT = { CONFIRMED: '✓ Подтверждено картой', DISPUTED: '⚠ По карте иначе — гость увидит оба варианта', UNVERIFIED: '? Проверить нечем — покажем как заявление отеля' };
+  let regionHotels = null;
+
+  document.querySelectorAll('.roles button').forEach(b => b.addEventListener('click', () => showRole(b.dataset.role)));
+
+  function showRole(role) {
+    document.querySelectorAll('.roles button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.role === role)));
+    ['guest', 'hotelier', 'admin'].forEach(r => { document.getElementById('role-' + r).hidden = r !== role; });
+    if (role === 'hotelier') loadExtranet();
+    if (role === 'admin') loadAdmin();
+  }
+
+  async function api(url, opts) {
+    const res = await fetch(url, opts);
+    const body = res.status === 204 ? null : await res.json();
+    if (!res.ok) throw new Error((body && body.detail) || 'Ошибка ' + res.status);
+    return body;
+  }
+
+  async function status() {
+    const s = await api('/api/v1/admin/enrichment');
+    regionHotels = s.hotels;
+    return s;
+  }
+
+  async function loadExtranet() {
+    const sel = document.getElementById('ex-hotel');
+    try {
+      if (!regionHotels) await status();
+      if (!sel.options.length) {
+        sel.innerHTML = regionHotels.map(h => `<option value="${h.id}">${esc(h.name)}</option>`).join('');
+        sel.onchange = renderClaims;
+      }
+      await renderClaims();
+    } catch (e) {
+      document.getElementById('ex-claims').innerHTML = `<div class="alert err">${esc(e.message)}</div>`;
+    }
+  }
+
+  async function renderClaims() {
+    const id = document.getElementById('ex-hotel').value;
+    const [options, profile] = await Promise.all([api('/api/v1/extranet/claim-options'), api('/api/v1/hotels/' + id + '/facts')]);
+    const facts = Object.fromEntries(profile.facts.map(f => [f.code, f]));
+    const checks = Object.fromEntries(profile.checks.map(c => [c.code, c]));
+    const codes = Object.keys(CLAIM_TITLE).filter(c => options[c]);
+    const filled = codes.filter(c => checks[c]).length;
+    document.getElementById('ex-score').innerHTML = `Заполнено ${filled} из ${codes.length}` +
+      (profile.trust != null ? ` · доверие к данным отеля <b>${Math.round(profile.trust * 100)}%</b>` : '') +
+      ' · данные с пометкой «⚠» стоит уточнить';
+    document.getElementById('ex-claims').innerHTML = codes.map(code => {
+      const c = checks[code];
+      const f = facts[code];
+      const current = c ? Object.entries(options[code]).find(([, t]) => t === c.claimed) : null;
+      return `<div class="claim-row" data-code="${code}">
+        <b>${esc(CLAIM_TITLE[code])}</b>
+        <select aria-label="${esc(CLAIM_TITLE[code])}"><option value="">— не указано —</option>${Object.entries(options[code]).map(([lvl, t]) =>
+          `<option value="${lvl}" ${current && current[0] === lvl ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+        <button class="ghost" type="button">Сохранить</button>
+        <div class="res">${c ? `<b>${CHECK_TEXT[c.status]}</b><br><span class="kind">${esc(c.observed)}</span>`
+          : f ? `<span class="kind">По карте: ${esc(f.value)} — ${esc(f.evidence)}</span>` : '<span class="kind">По карте данных нет</span>'}</div>
+      </div>`;
+    }).join('');
+    document.querySelectorAll('#ex-claims .claim-row').forEach(row => {
+      row.querySelector('button').onclick = async () => {
+        const level = row.querySelector('select').value;
+        const res = row.querySelector('.res');
+        if (!level) { res.innerHTML = '<span class="kind">Выберите вариант</span>'; return; }
+        try {
+          const check = await api('/api/v1/extranet/hotels/' + id + '/claims/' + row.dataset.code, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level, author: 'менеджер отеля' }) });
+          res.innerHTML = `<b>${CHECK_TEXT[check.status]}</b><br><span class="kind">${esc(check.observed)}</span>`;
+          renderClaims();
+        } catch (e) { res.innerHTML = `<div class="alert err">${esc(e.message)}</div>`; }
+      };
+    });
+  }
+
+  async function loadAdmin() {
+    try {
+      const s = await status();
+      const run = s.runs[0];
+      document.getElementById('ad-status').innerHTML = `Регион <b>${esc(s.region)}</b>: ${s.hotels.length} реальных отелей. ` + (run
+        ? `Последний пересчёт ${new Date(run.finishedAt).toLocaleString('ru-RU')}: ${run.facts} фактов за ${((new Date(run.finishedAt) - new Date(run.startedAt)) / 1000).toFixed(1)} с,
+           расхождений с заявлениями отелей — ${run.disputes}.<br><span class="kind">${esc(run.source)} · ${esc(run.message || '')}</span>`
+        : 'Пересчёта ещё не было.');
+      document.getElementById('ad-custom').innerHTML = s.custom.length ? '<p class="hint">Добавленные характеристики:</p><ul class="checks">' +
+        s.custom.map(c => `<li><b>${esc(c.title)}</b> <span class="kind">· ${esc(c.code)} · посчитано для ${c.hotels} отелей</span>
+          <button class="linkish" type="button" data-del="${esc(c.code)}">удалить</button></li>`).join('') + '</ul>' : '';
+      document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await api('/api/v1/admin/characteristics/' + b.dataset.del, { method: 'DELETE' }); loadAdmin(); });
+      document.getElementById('ad-facts').innerHTML = '<table class="kv-table"><tr><th>Характеристика</th><th>Отелей</th></tr>' +
+        Object.entries(s.facts).map(([k, n]) => `<tr><td>${esc(CLAIM_TITLE[k] || k)}</td><td>${n}</td></tr>`).join('') + '</table>';
+    } catch (e) {
+      document.getElementById('ad-status').innerHTML = `<span class="alert err">${esc(e.message)}</span>`;
+    }
+  }
+
+  document.getElementById('ad-run').onclick = async e => {
+    e.target.disabled = true; e.target.textContent = 'Считаем…';
+    try { await api('/api/v1/admin/enrichment/run', { method: 'POST' }); } catch (err) { alertBox(err); }
+    e.target.disabled = false; e.target.textContent = 'Пересчитать по карте';
+    loadAdmin();
+  };
+
+  document.getElementById('ad-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const msg = document.getElementById('ad-msg');
+    const text = document.getElementById('ad-text').value.trim();
+    msg.innerHTML = '<span class="kind">Собираем правило и считаем для всех отелей…</span>';
+    try {
+      const r = await api('/api/v1/admin/characteristics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+      const TOOL = { NEAREST: 'ближайший объект', COUNT: 'сколько объектов', ABSENT: 'нет объектов' };
+      msg.innerHTML = `<div class="alert ok">Готово: «${esc(r.recipe.title)}» — ${TOOL[r.recipe.tool]} <code>${esc(r.recipe.filter)}</code> в радиусе ${r.recipe.radius} м.
+        Ответ «да» у ${r.hotelsWithYes} из ${r.run.hotels} отелей.</div>`;
+      loadAdmin();
+    } catch (err) { msg.innerHTML = `<div class="alert err">${esc(err.message)}</div>`; }
+  });
+
+  function alertBox(err) { document.getElementById('ad-status').insertAdjacentHTML('beforeend', `<div class="alert err">${esc(err.message)}</div>`); }
 
   function drawMap(hotels) {
     if (!window.L) return;

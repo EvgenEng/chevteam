@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import ru.chevteam.onestep.catalog.Pricing;
+import ru.chevteam.onestep.enrichment.HotelFacts;
 import ru.chevteam.onestep.guide.BeachInfo;
 import ru.chevteam.onestep.guide.EntryInfo;
 import ru.chevteam.onestep.guide.SeasonInfo;
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Оркестрация «одного шага»: понять запрос → выбрать кандидатов → посчитать цену → объяснимо ранжировать.
@@ -49,14 +51,16 @@ class DefaultHotelSearch implements HotelSearch {
     private final TravelGuide guide;
     private final SearchProperties props;
     private final Clock clock;
+    private final HotelFacts facts;
 
     DefaultHotelSearch(IntentExtractor intentExtractor, CandidateRepository candidates, TravelGuide guide,
-                       SearchProperties props, Clock clock) {
+                       SearchProperties props, Clock clock, HotelFacts facts) {
         this.intentExtractor = intentExtractor;
         this.candidates = candidates;
         this.guide = guide;
         this.props = props;
         this.clock = clock;
+        this.facts = facts;
     }
 
     @Override
@@ -145,6 +149,9 @@ class DefaultHotelSearch implements HotelSearch {
         Map<String, Optional<SeasonInfo>> seasons = new HashMap<>();
         Map<String, Optional<EntryInfo>> entries = new HashMap<>();
         Map<String, List<WildlifeInfo>> wildlife = new HashMap<>();
+        // факты пайплайна — одним запросом на всех кандидатов (есть только у отелей проработанного региона)
+        Map<UUID, HotelFacts.Profile> verified = facts.profiles(found.stream()
+                .filter(c -> "OSM".equals(c.dataSource())).map(HotelCandidate::id).toList());
         List<HotelMatch> ranked = found.stream()
                 .map(c -> {
                     Optional<SeasonInfo> season = seasons.computeIfAbsent(c.country() + "|" + c.city(),
@@ -158,7 +165,7 @@ class DefaultHotelSearch implements HotelSearch {
                     List<WildlifeInfo> animals = wildlife.computeIfAbsent(c.country() + "|" + c.city(),
                             k -> guide.wildlife(c.country(), c.city()));
                     MatchScorer.Context ctx = new MatchScorer.Context(beach, toBeach, season.orElse(null), month,
-                            monthExplicit, alternatives, entry.orElse(null), animals);
+                            monthExplicit, alternatives, entry.orElse(null), animals, verified.get(c.id()));
                     return toMatch(intent, c, priceWithMeal(intent, c, nights), landmarkRef, ctx);
                 })
                 .filter(m -> budgetCeiling == null || m.price().total().compareTo(budgetCeiling) <= 0)
@@ -237,6 +244,6 @@ class DefaultHotelSearch implements HotelSearch {
         return new HotelMatch(c.id(), c.name(), c.country(), c.region(), c.city(), c.district(), c.stars(), c.rating(),
                 c.reviewsCount(), c.description(), c.location(), scored.matchPercent(), price, c.rate().rateId(),
                 c.rate().roomName(), c.rate().mealPlan(), c.rate().refundable(), scored.reasons(), c.nearby(),
-                beach, ctx.season(), c.accessibility(), c.policies(), ctx.entry(), c.surroundings(), ctx.wildlife(), c.services());
+                beach, ctx.season(), c.accessibility(), c.policies(), ctx.entry(), c.surroundings(), ctx.wildlife(), c.services(), c.dataSource(), ctx.verified());
     }
 }
