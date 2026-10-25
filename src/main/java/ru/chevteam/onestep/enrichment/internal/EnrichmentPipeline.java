@@ -10,6 +10,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import ru.chevteam.onestep.enrichment.CardScore;
 import ru.chevteam.onestep.enrichment.ClaimCheck;
 import ru.chevteam.onestep.enrichment.ClaimStatus;
 import ru.chevteam.onestep.enrichment.FactSource;
@@ -380,6 +381,17 @@ public class EnrichmentPipeline {
                 .filter(c -> c.code().equals(code)).findFirst().orElseThrow();
     }
 
+    /** Экстранет: уровень карточки, что сделать до следующего и список задач по сверке с картой. */
+    public HotelierBoard board(UUID hotelId) {
+        if (!repo.hotelExists(hotelId)) {
+            throw new NotFoundException("Отель " + hotelId + " не найден");
+        }
+        List<ClaimCheck> checks = checks(List.of(hotelId)).getOrDefault(hotelId, List.of());
+        CardScore score = CardScoring.score(checks);
+        return new HotelierBoard(score, score.level().title(), CardScoring.next(score),
+                CardScoring.tasks(repo.facts(List.of(hotelId)), checks));
+    }
+
     /** Варианты заявлений для формы экстранета. */
     public Map<String, Map<String, String>> claimOptions() {
         return ClaimVerifier.CLAIMS;
@@ -408,6 +420,10 @@ public class EnrichmentPipeline {
         public boolean needsData() {
             return dataRequest != null;
         }
+    }
+
+    /** Экстранет отельера: карточка, следующий шаг и задачи. */
+    public record HotelierBoard(CardScore score, String levelTitle, String next, List<HotelierTask> tasks) {
     }
 
     /** Решение по заявке агента: заявка, пересчёт (если был) и какие характеристики включены или убраны. */

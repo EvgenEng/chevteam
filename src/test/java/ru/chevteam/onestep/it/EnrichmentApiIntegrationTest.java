@@ -90,6 +90,37 @@ class EnrichmentApiIntegrationTest {
     }
 
     @Test
+    void hotelierTasksLeadTheCardToVerified() throws Exception {
+        UUID inturist = hotel("Ялта-Интурист");
+        String tasks = "/api/v1/extranet/hotels/" + inturist + "/tasks";
+        JsonNode board = call(get(tasks), 200);
+        assertThat(board.at("/score/level").asText()).isEqualTo("NEW");
+        assertThat(board.get("tasks")).hasSize(9);
+
+        // заявили «без лестниц», а по карте ≈230 м лестниц — задача «исправьте» с вариантом карты
+        call(put("/api/v1/extranet/hotels/" + inturist + "/claims/STAIRS_TO_SEA").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"level\":\"NONE\"}"), 200);
+        board = call(get(tasks), 200);
+        JsonNode fix = board.get("tasks").get(0);
+        assertThat(fix.get("kind").asText()).isEqualTo("FIX");
+        assertThat(fix.get("code").asText()).isEqualTo("STAIRS_TO_SEA");
+        assertThat(fix.get("suggestedLevel").asText()).isEqualTo("MANY");
+
+        // отельер принимает всё, что предлагает карта, — карточка становится «Проверенной»
+        for (JsonNode task : board.get("tasks")) {
+            if (!task.path("suggestedLevel").isMissingNode() && !task.get("suggestedLevel").isNull()) {
+                call(put("/api/v1/extranet/hotels/" + inturist + "/claims/" + task.get("code").asText())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"level\":\"" + task.get("suggestedLevel").asText() + "\"}"), 200);
+            }
+        }
+        board = call(get(tasks), 200);
+        assertThat(board.at("/score/disputes").asInt()).isZero();
+        assertThat(board.at("/score/level").asText()).isEqualTo("VERIFIED");
+        assertThat(call(get("/api/v1/hotels/" + inturist + "/facts"), 200).at("/card/level").asText()).isEqualTo("VERIFIED");
+    }
+
+    @Test
     void characteristicAddedAsText() throws Exception {
         JsonNode added = call(post("/api/v1/admin/characteristics").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"text\":\"аптека в 5 минутах\"}"), 201);

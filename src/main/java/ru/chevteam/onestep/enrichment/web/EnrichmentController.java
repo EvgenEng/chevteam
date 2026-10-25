@@ -108,6 +108,12 @@ public class EnrichmentController {
         return pipeline.claimOptions();
     }
 
+    @GetMapping("/extranet/hotels/{id}/tasks")
+    @Operation(summary = "Карточка отеля в экстранете: уровень, заполненность, доверие и задачи по сверке с картой")
+    public EnrichmentPipeline.HotelierBoard tasks(@PathVariable UUID id) {
+        return pipeline.board(id);
+    }
+
     @PutMapping("/extranet/hotels/{id}/claims/{code}")
     @Operation(summary = "Заявление отельера — сохраняется и сразу сверяется с картой")
     public ClaimCheck declare(@PathVariable UUID id, @PathVariable String code, @Valid @RequestBody ClaimRequest request) {

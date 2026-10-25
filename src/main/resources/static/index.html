@@ -205,6 +205,22 @@
   .checks li { padding: 8px 10px; border-radius: var(--radius-sm); background: var(--paper); font-size: 14px; }
   .checks li.DISPUTED { background: #FDEDEC; }
   .checks li.CONFIRMED { background: #E8F5EE; }
+  .scorecard { margin-top: 16px; display: grid; gap: 8px; }
+  .scorecard .level { display: inline-flex; align-items: center; gap: 8px; font: 700 16px/1.2 "Onest", sans-serif; }
+  .scorecard .level i { font-style: normal; padding: 5px 10px; border-radius: 999px; font-size: 13px; background: var(--paper); color: var(--muted); }
+  .scorecard .level i.on { background: var(--ink); color: #fff; }
+  .scorecard .level i.done { background: #E6F3EC; color: var(--ok); }
+  .bar { height: 8px; border-radius: 999px; background: var(--paper); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--ok); border-radius: 999px; transition: width .3s; }
+  .task { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .task:first-child { border-top: 0; }
+  .task p { margin: 2px 0 0; color: var(--muted); }
+  .task .kind-FIX b::before { content: "⚠ "; }
+  .task .kind-CONFIRM b::before { content: "✓ "; color: var(--ok); }
+  .task .kind-TELL b::before { content: "✎ "; }
+  .task .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .badge-verified { display: inline-block; font-size: 12px; font-weight: 600; color: var(--ok); background: #E6F3EC; border-radius: 999px; padding: 3px 8px; }
+  @media (max-width: 640px) { .task { grid-template-columns: minmax(0, 1fr); } .task .acts { justify-content: flex-start; } }
   .agent-card { border: 1.5px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 10px; font-size: 14px; }
   .agent-card.PENDING, .agent-card.FAILED { border-color: var(--ink); }
   .agent-card p { margin: 0 0 8px; }
@@ -345,7 +361,14 @@
       <p class="lead">Расскажите гостям об отеле. Мы доверяем вашим данным, но сверяем их с картой: расхождение увидит гость —
         поэтому лучше указать как есть. Подтверждённые данные поднимают отель в выдаче для тех, кому это важно.</p>
       <label class="hotel-pick">Ваш отель <select id="ex-hotel"></select></label>
-      <p id="ex-score" class="lead" style="margin-top:12px"></p>
+      <div id="ex-score" class="scorecard" aria-live="polite"></div>
+    </div>
+    <div class="panel" id="ex-tasks-panel">
+      <h2>Задачи</h2>
+      <div id="ex-tasks"></div>
+    </div>
+    <div class="panel">
+      <h2>Данные отеля</h2>
       <div id="ex-claims"></div>
     </div>
   </section>
@@ -535,7 +558,8 @@
           <p class="meta"><span class="stars" aria-label="${h.stars} звёзд">${'★'.repeat(h.stars)}</span>
             ${esc(h.city)}${h.district ? ', ' + esc(h.district) : ''},
             ${h.reviewsCount ? `<span class="rating">${h.rating}</span> по ${h.reviewsCount} отзывам` : 'оценок пока нет'}${visa}${
-              h.dataSource === 'OSM' ? '<span class="badge-real" title="Реальный отель: окружение посчитано по OpenStreetMap">🛰 реальный отель</span>' : ''}</p>
+              h.dataSource === 'OSM' ? '<span class="badge-real" title="Реальный отель: окружение посчитано по OpenStreetMap">🛰 реальный отель</span>' : ''}${
+              h.verified && h.verified.card && h.verified.card.level === 'VERIFIED' ? ' <span class="badge-verified" title="Отель заполнил карточку, и его данные совпадают с картой">✓ Проверенная карточка</span>' : ''}</p>
           <p class="desc">${esc(h.description)}</p>
           <ul class="reasons">${h.reasons.map(r => `<li class="${r.kind}">${esc(r.text)}</li>`).join('')}</ul>
           ${facts ? `<div class="facts">${facts}</div>` : ''}
@@ -1199,6 +1223,9 @@
     { t: 'Компромиссы', show: h => count(h, ['PARTIAL', 'MISS']) ? '⚠ ' + count(h, ['PARTIAL', 'MISS']) : 'нет', v: h => count(h, ['PARTIAL', 'MISS']), better: 'min' },
     { t: 'Расхождения с картой', show: h => { const n = h.verified ? h.verified.checks.filter(c => c.status === 'DISPUTED').length : null; return n == null ? '—' : n ? '⚠ ' + n : 'нет'; },
       v: h => h.verified ? h.verified.checks.filter(c => c.status === 'DISPUTED').length : null, better: 'min' },
+    { t: 'Карточка отеля', show: h => { const c = h.verified && h.verified.card; return !c ? '—' : c.level === 'VERIFIED' ? '✓ проверенная'
+        : c.level === 'FILLED' ? 'заполненная' : c.filled ? `заполнено ${c.filled} из ${c.total}` : 'отель не заполнял'; },
+      v: h => { const c = h.verified && h.verified.card; return c ? ['NEW', 'FILLED', 'VERIFIED'].indexOf(c.level) * 100 + c.filled : null; }, better: 'max' },
   ];
 
   function openCompare(hotels) {
@@ -1292,10 +1319,7 @@
     const facts = Object.fromEntries(profile.facts.map(f => [f.code, f]));
     const checks = Object.fromEntries(profile.checks.map(c => [c.code, c]));
     const codes = Object.keys(CLAIM_TITLE).filter(c => options[c]);
-    const filled = codes.filter(c => checks[c]).length;
-    document.getElementById('ex-score').innerHTML = `Заполнено ${filled} из ${codes.length}` +
-      (profile.trust != null ? ` · доверие к данным отеля <b>${Math.round(profile.trust * 100)}%</b>` : '') +
-      ' · данные с пометкой «⚠» стоит уточнить';
+    renderBoard(id);
     document.getElementById('ex-claims').innerHTML = codes.map(code => {
       const c = checks[code];
       const f = facts[code];
@@ -1321,6 +1345,40 @@
           renderClaims();
         } catch (e) { res.innerHTML = `<div class="alert err">${esc(e.message)}</div>`; }
       };
+    });
+  }
+
+  const LEVELS = [['NEW', 'Новая'], ['FILLED', 'Заполненная'], ['VERIFIED', 'Проверенная']];
+  const TASK_ACTION = { FIX: 'Исправить: ', CONFIRM: 'Подтвердить: ' };
+
+  async function renderBoard(id) {
+    const b = await api('/api/v1/extranet/hotels/' + id + '/tasks');
+    const s = b.score;
+    const at = LEVELS.findIndex(([l]) => l === s.level);
+    document.getElementById('ex-score').innerHTML = `
+      <div class="level">${LEVELS.map(([l, t], i) => `<i class="${i === at ? 'on' : i < at ? 'done' : ''}">${i < at ? '✓ ' : ''}${t}</i>`).join('')}</div>
+      <div class="bar" role="progressbar" aria-label="Заполнено" aria-valuemin="0" aria-valuemax="${s.total}" aria-valuenow="${s.filled}">
+        <span style="width:${Math.round(100 * s.filled / s.total)}%"></span></div>
+      <p class="kind" style="margin:0">Заполнено ${s.filled} из ${s.total}${s.trust != null ? ` · подтверждено картой ${Math.round(s.trust * 100)}%` : ''}${s.disputes ? ` · расхождений: ${s.disputes}` : ''}</p>
+      <p style="margin:0"><b>${esc(b.next)}</b></p>`;
+    const box = document.getElementById('ex-tasks');
+    box.innerHTML = b.tasks.length ? b.tasks.map(t => `<div class="task">
+        <div class="kind-${t.kind}"><b>${esc(CLAIM_TITLE[t.code] || t.title)}</b><p>${esc(t.text)}</p></div>
+        <div class="acts">${t.suggestedLevel ? `<button class="${t.kind === 'FIX' ? 'primary' : 'ghost'}" type="button"
+            data-code="${esc(t.code)}" data-level="${esc(t.suggestedLevel)}">${TASK_ACTION[t.kind]}«${esc(t.suggestedText)}»</button>` : ''}
+          <button class="linkish" type="button" data-goto="${esc(t.code)}">${t.kind === 'TELL' ? 'Заполнить' : 'Свой вариант'}</button></div>
+      </div>`).join('') : '<p class="kind">Задач нет — карточка заполнена и сходится с картой. 🎉</p>';
+    box.querySelectorAll('[data-level]').forEach(btn => btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        await api('/api/v1/extranet/hotels/' + id + '/claims/' + btn.dataset.code, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: btn.dataset.level, author: 'менеджер отеля' }) });
+        renderClaims();
+      } catch (e) { btn.disabled = false; btn.insertAdjacentHTML('afterend', `<span class="alert err">${esc(e.message)}</span>`); }
+    });
+    box.querySelectorAll('[data-goto]').forEach(btn => btn.onclick = () => {
+      const row = document.querySelector(`#ex-claims .claim-row[data-code="${btn.dataset.goto}"]`);
+      if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); row.querySelector('select').focus(); }
     });
   }
 

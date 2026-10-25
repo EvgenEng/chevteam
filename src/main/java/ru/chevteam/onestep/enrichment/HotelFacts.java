@@ -15,10 +15,11 @@ public interface HotelFacts {
 
     /**
      * @param trust доля подтверждённых заявлений отеля 0..1 или {@code null}, если сверять было нечего
+     * @param card  заполненность и уровень карточки — «Проверенная карточка» видна гостю
      */
-    record Profile(List<HotelFact> facts, List<ClaimCheck> checks, Double trust) {
+    record Profile(List<HotelFact> facts, List<ClaimCheck> checks, Double trust, CardScore card) {
 
-        public static final Profile EMPTY = new Profile(List.of(), List.of(), null);
+        public static final Profile EMPTY = new Profile(List.of(), List.of(), null, null);
 
         public Profile {
             facts = facts == null ? List.of() : List.copyOf(facts);

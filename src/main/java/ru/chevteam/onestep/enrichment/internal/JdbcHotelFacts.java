@@ -41,7 +41,7 @@ class JdbcHotelFacts implements HotelFacts {
             List<HotelFact> f = facts.getOrDefault(id, List.of());
             List<ClaimCheck> c = checks.getOrDefault(id, List.of());
             if (!f.isEmpty() || !c.isEmpty()) {
-                result.put(id, new Profile(f, c, ClaimVerifier.trust(c)));
+                result.put(id, new Profile(f, c, ClaimVerifier.trust(c), CardScoring.score(c)));
             }
         }
         return result;

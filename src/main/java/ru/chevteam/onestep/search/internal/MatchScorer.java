@@ -108,6 +108,8 @@ final class MatchScorer {
     static final BigDecimal SOFT_OK = new BigDecimal("7.8");
     static final BigDecimal RATING_EXCELLENT = new BigDecimal("9.0");
 
+    /** Вес подтверждённого заявления: меньше любого настоящего критерия — это доверие, а не замена им. */
+    static final double W_CONFIRMED = 3;
     private static final Locale RU = Locale.forLanguageTag("ru");
 
     private MatchScorer() {
@@ -842,21 +844,27 @@ final class MatchScorer {
             ctx.fact(CONSTRUCTION).filter(f -> "YES".equals(f.level()))
                     .ifPresent(f -> t.add(4, 0.3, MatchReason.partial("Рядом " + lower(f.value()) + " (по карте)")));
         }
+        List<String> confirmed = new ArrayList<>();
         for (ClaimCheck check : ctx.verified().checks()) {
             if (check.status() == ClaimStatus.DISPUTED && "SEA_VIEW".equals(check.code())
                     && intent.locationFeatures().contains(LocationFeature.SEA_VIEW)) {
                 t.add(5, 0.2, MatchReason.partial("Отель указывает «" + check.claimed() + "», но по рельефу: " + check.observed()));
                 continue;
             }
-            if (check.status() != ClaimStatus.DISPUTED) {
-                continue;
-            }
             boolean relevant = switch (check.code()) {
                 case "ROAD_NOISE", "NIGHTLIFE", "CONSTRUCTION" -> quiet;
                 case "SEA_DISTANCE", "BEACH_SURFACE" -> intent.wantsBeach();
-                case "STAIRS_TO_SEA" -> slow || stroller || intent.wantsBeach();
+                case "STAIRS_TO_SEA", "CLIMB_TO_SEA" -> slow || stroller || intent.wantsBeach();
+                case "SEA_VIEW" -> intent.locationFeatures().contains(LocationFeature.SEA_VIEW);
                 default -> false;
             };
+            if (check.status() == ClaimStatus.CONFIRMED && relevant) {
+                confirmed.add(check.claimed());
+                continue;
+            }
+            if (check.status() != ClaimStatus.DISPUTED) {
+                continue;
+            }
             MatchReason reason = new MatchReason(relevant ? MatchReason.Kind.PARTIAL : MatchReason.Kind.INFO,
                     "Отель указывает «" + check.claimed() + "», но по карте: " + check.observed());
             if (relevant) {
@@ -864,6 +872,10 @@ final class MatchScorer {
             } else {
                 t.info(reason);
             }
+        }
+        if (!confirmed.isEmpty()) {
+            // отель сам подтвердил то, что важно гостю, и карта с ним согласна — один небольшой плюс к доверию
+            t.add(W_CONFIRMED, 1.0, MatchReason.match("Отель подтвердил, и карта согласна: " + String.join(", ", confirmed)));
         }
     }
 
