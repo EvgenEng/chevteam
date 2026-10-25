@@ -26,4 +26,15 @@ record CandidateQuery(
         return new CandidateQuery(newCountry, newRegion, newCity, minStars, adults, children, mealPlan, month,
                 null, null, limit);
     }
+
+    /** Без радиуса вокруг достопримечательности: расстояние до неё по-прежнему считается. */
+    CandidateQuery withoutRadius() {
+        return new CandidateQuery(country, region, city, minStars, adults, children, mealPlan, month, landmarkId, null, limit);
+    }
+
+    /** Проверка «отели есть, но не на столько гостей». */
+    CandidateQuery withGuests(int newAdults, int newChildren) {
+        return new CandidateQuery(country, region, city, minStars, newAdults, newChildren, mealPlan, month, landmarkId,
+                radiusMeters, limit);
+    }
 }

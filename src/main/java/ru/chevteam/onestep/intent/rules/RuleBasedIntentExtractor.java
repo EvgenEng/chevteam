@@ -82,7 +82,11 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
 
     private static final Pattern PROXIMITY_TO = p("\\bдо\\s+((?:\\p{L}[\\p{L}-]*\\s+){0,2}\\p{L}[\\p{L}-]{2,})\\s+пешком(?:\\s+минут\\w*)?(?:\\s+за)?(?:\\s+(\\d{1,3}))?(?:\\s*мин\\w*)?");
     private static final Pattern PROXIMITY_MINUTES_FIRST = p("\\b(\\d{1,3})\\s*мин\\w*\\s+(?:пешком|ходьбы)\\s+(?:до|от)\\s+(\\p{L}[\\p{L}-]{2,})");
-    private static final Pattern PROXIMITY_NEAR = p("\\b(?:рядом с|возле|около|недалеко от)\\s+(\\p{L}[\\p{L}-]{2,})");
+    private static final Pattern PROXIMITY_NEAR = p("\\b(?:рядом с|возле|около|недалеко от)\\s+(\\p{L}[\\p{L}-]{2,}(?:\\s+\\p{L}[\\p{L}-]{3,})?)");
+    /** «Хочу к пандам», «поближе к Эрмитажу». Море и пляж сюда не попадают — для них свои правила. */
+    private static final Pattern PROXIMITY_WANT = p("\\b(?:хочу|хотим|поближе|съездить|сходить|попасть)\\s+к\\s+(\\p{L}[\\p{L}-]{3,})");
+    /** «Хочу в Урюпинск» — название, которого нет в словаре направлений. */
+    private static final Pattern UNKNOWN_PLACE = Pattern.compile("(?:^|[\\s,.!?])(?:в|во|на)\\s+(\\p{Lu}[\\p{L}-]{3,})");
     private static final Pattern SEA_OR_BEACH = p("^(?:мор|пляж|берег)\\w*");
     private static final Pattern CENTER_WORD = p("^центр\\w*");
 
@@ -230,7 +234,7 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
 
     private static final Map<LocationFeature, Pattern> LOCATION_PATTERNS = linkedMap(
             LocationFeature.FIRST_LINE, p("перв\\w* линии?|\\b1(?:-?й)? линии?|на берегу|у (?:самого )?моря|на пляже"),
-            LocationFeature.AWAY_FROM_TRAFFIC, p("(?:вдали|подальше|далеко) от (?:оживленн\\w* )?(?:дорог|трасс|магистрал|шоссе)\\w*"
+            LocationFeature.AWAY_FROM_TRAFFIC, p("(?:вдали|подальше|далеко) от (?:(?:оживленн|шумн|больш|загруженн|автомобильн)\\w* )?(?:дорог|трасс|магистрал|шоссе)\\w*"
                     + "|без шума (?:машин|дорог|трафик)\\w*|не у (?:дороги|трассы)|без мотобайк\\w*"),
             LocationFeature.CAR_ACCESS, p("подъехать на машин\\w*|подъезд\\w* (?:к отелю|на машин\\w*|до двери)|на (?:своей )?машин\\w*"
                     + "|на авто\\b|до двери|с чемоданами"),
@@ -318,8 +322,17 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
         }
 
         if (destination == null) {
-            ctx.clarify(IntentField.DESTINATION,
-                    "Куда хотите поехать? Можно описать атмосферу — например, «тёплое море и горы».");
+            Matcher unknown = UNKNOWN_PLACE.matcher(query);
+            String place = null;
+            while (unknown.find() && place == null) {
+                String word = unknown.group(1);
+                if (!MONTH.matcher(word.toLowerCase(java.util.Locale.ROOT)).find()) {
+                    place = word;
+                }
+            }
+            ctx.clarify(IntentField.DESTINATION, place != null
+                    ? "«" + place + "» пока нет в нашем каталоге направлений. Попробуйте ближайший крупный город или регион."
+                    : "Куда хотите поехать? Можно описать атмосферу — например, «тёплое море и горы».");
         }
         if (stay.month() == null) {
             ctx.clarify(IntentField.MONTH, "Когда планируете поездку? От сезона сильно зависит цена.");
@@ -444,6 +457,13 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
         while (m.find()) {
             addProximity(m.group(1), 10, result, features);
             text.consume(m.start(), m.end());
+        }
+        m = PROXIMITY_WANT.matcher(text.value());
+        while (m.find()) {
+            if (!SEA_OR_BEACH.matcher(m.group(1)).find()) {
+                addProximity(m.group(1), DEFAULT_WALK_MINUTES, result, features);
+                text.consume(m.start(), m.end());
+            }
         }
         return result;
     }
@@ -693,6 +713,10 @@ public final class RuleBasedIntentExtractor implements IntentExtractor {
         } else {
             adults = DEFAULT_ADULTS;
             ctx.assume(IntentField.ADULTS, "Число гостей не указано — считаем " + DEFAULT_ADULTS + " взрослых");
+        }
+        if (adults > 10) {
+            ctx.assume(IntentField.ADULTS, "В одном номере не больше 10 взрослых — для компании из " + adults
+                    + " человек забронируйте несколько номеров");
         }
         return new Guests(Math.max(1, Math.min(10, adults)), ages);
     }

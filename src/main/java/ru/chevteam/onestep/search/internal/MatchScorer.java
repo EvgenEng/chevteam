@@ -236,7 +236,15 @@ final class MatchScorer {
 
     private static void scoreProximity(Tally t, LandmarkRef landmark, int distanceM) {
         int walk = WalkingTime.minutes(distanceM);
-        String text = "≈" + walk + " мин пешком до: " + landmark.name();
+        if (landmark.farAway()) {
+            int taxi = taxiMinutes(distanceM);
+            t.add(W_PROXIMITY / 2, Math.max(0.2, 1 - taxi / 90.0), MatchReason.partial(landmark.name() + ": "
+                    + Distance.format(distanceM) + ", ≈" + duration(taxi) + " на такси"));
+            return;
+        }
+        String text = walk <= NearbyPlace.MAX_COMFORT_WALK_MINUTES * 2
+                ? "≈" + walk + " мин пешком до: " + landmark.name()
+                : landmark.name() + ": " + Distance.format(distanceM) + ", пешком далеко — ≈" + duration(taxiMinutes(distanceM)) + " на такси";
         if (walk <= landmark.maxWalkMinutes()) {
             t.add(W_PROXIMITY, 1, MatchReason.match(text));
         } else if (walk <= landmark.maxWalkMinutes() * 1.5) {
@@ -763,6 +771,11 @@ final class MatchScorer {
         }
     }
 
+    /** Такси по городу без пробок: дорога ≈ ×1,3 от прямой, 25 км/ч, плюс подача. */
+    static int taxiMinutes(int meters) {
+        return (int) Math.round(5 + meters * 1.3 / 1000 / 25 * 60);
+    }
+
     /** «35 мин», «1 ч 20 мин», «2 ч 30 мин». */
     static String duration(int minutes) {
         if (minutes < 60) {
@@ -861,7 +874,14 @@ final class MatchScorer {
     record Scored(int matchPercent, List<MatchReason> reasons) {
     }
 
-    record LandmarkRef(String name, int maxWalkMinutes) {
+    /**
+     * @param farAway пешком до места не дойти ни от одного отеля — оцениваем, насколько ближе ехать
+     */
+    record LandmarkRef(String name, int maxWalkMinutes, boolean farAway) {
+
+        LandmarkRef(String name, int maxWalkMinutes) {
+            this(name, maxWalkMinutes, false);
+        }
     }
 
     /**

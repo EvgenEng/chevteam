@@ -440,6 +440,19 @@ class RuleBasedIntentExtractorTest {
         }
 
         @Test
+        void unknownPlaceAndLandmarkPhrases() {
+            assertThat(extractor.extract("Хочу в Урюпинск").clarifications())
+                    .anyMatch(c -> c.contains("«Урюпинск» пока нет в нашем каталоге"));
+            assertThat(extract("Чэнду, хочу к пандам").proximity()).extracting(ProximityConstraint::landmark)
+                    .containsExactly("пандам");
+            assertThat(extract("Чэнду, рядом с базой панд").proximity()).extracting(ProximityConstraint::landmark)
+                    .containsExactly("базой панд");
+            assertThat(extract("Хочу к морю в Турцию").proximity()).isEmpty();
+            assertThat(extract("Бангкок, подальше от шумной дороги").locationFeatures())
+                    .containsExactly(LocationFeature.AWAY_FROM_TRAFFIC);
+        }
+
+        @Test
         void plainQueryHasNoSpecialNeeds() {
             SearchIntent intent = extract("Турция, всё включено, двое взрослых");
             assertThat(intent.beach()).isEmpty();

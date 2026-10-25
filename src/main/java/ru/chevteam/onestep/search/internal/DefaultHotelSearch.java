@@ -93,7 +93,24 @@ class DefaultHotelSearch implements HotelSearch {
         List<HotelCandidate> found = candidates.find(candidateQuery);
         String notice = null;
         boolean relaxed = false;
-        if (found.isEmpty() && where != null) {
+        boolean farLandmark = false;
+        if (found.isEmpty() && candidateQuery.radiusMeters() != null) {
+            // в пешей доступности ничего — показываем ближайшие отели того же города, а не уезжаем в другую страну
+            found = candidates.find(candidateQuery.withoutRadius());
+            farLandmark = !found.isEmpty();
+            if (farLandmark) {
+                assumptions.add("В пешей доступности от «" + landmark.get().name() + "» отелей нет — показываем ближайшие");
+            }
+        }
+        boolean groupTooBig = false;
+        int guestsTotal = intent.guests().adults() + intent.guests().children();
+        if (found.isEmpty() && where != null && guestsTotal > 4
+                && !candidates.find(candidateQuery.withGuests(2, 0)).isEmpty()) {
+            groupTooBig = true;
+            notice = "Отели в направлении «" + where.displayName() + "» есть, но номеров на " + guestsTotal
+                    + " гостей нет. Компании лучше забронировать несколько номеров — например, поищите на 2–4 человек.";
+        }
+        if (found.isEmpty() && where != null && !groupTooBig) {
             relaxed = true;
             if (where.city() != null && where.region() != null) {
                 found = candidates.find(candidateQuery.withDestination(where.country(), where.region(), null));
@@ -115,11 +132,12 @@ class DefaultHotelSearch implements HotelSearch {
                         + "». Ниже — лучшие варианты по остальным вашим условиям в других странах.";
             }
         } else if (where == null) {
-            notice = "Направление не указано — подобрали лучшие варианты по остальным условиям во всех странах.";
+            notice = "Подобрали лучшие варианты по остальным условиям во всех странах.";
         }
 
+        boolean landmarkFar = farLandmark;
         MatchScorer.LandmarkRef landmarkRef = relaxed ? null : landmark
-                .map(l -> new MatchScorer.LandmarkRef(l.name(), proximity.maxWalkMinutes()))
+                .map(l -> new MatchScorer.LandmarkRef(l.name(), proximity.maxWalkMinutes(), landmarkFar))
                 .orElse(null);
         BigDecimal budgetCeiling = intent.budget() == null ? null
                 : intent.budget().totalFor(nights).multiply(BigDecimal.ONE.add(props.budgetTolerance()));
@@ -153,7 +171,7 @@ class DefaultHotelSearch implements HotelSearch {
                 extraction.source(), intent.destination(), found.size(), ranked.size());
 
         List<String> clarifications = new ArrayList<>(extraction.clarifications());
-        if (ranked.isEmpty()) {
+        if (ranked.isEmpty() && !groupTooBig) {
             clarifications.add("Под все условия ничего не нашлось. Попробуйте увеличить бюджет или убрать одно из пожеланий.");
         }
         SearchResponse.Understood understood = new SearchResponse.Understood(intent, extraction.source(),
@@ -171,7 +189,13 @@ class DefaultHotelSearch implements HotelSearch {
             assumptions.add("Чтобы учесть «" + first.landmark() + "», уточните город");
             return Optional.empty();
         }
-        Optional<ResolvedLandmark> resolved = candidates.resolveLandmark(intent.destination().city(), first.landmark());
+        // «базой панд»: пробуем каждое слово фразы — какое-то из них совпадёт с основой названия
+        Optional<ResolvedLandmark> resolved = Optional.empty();
+        for (String word : first.landmark().split("\\s+")) {
+            if (word.length() >= 3 && resolved.isEmpty()) {
+                resolved = candidates.resolveLandmark(intent.destination().city(), word);
+            }
+        }
         if (resolved.isEmpty()) {
             assumptions.add("Не нашли «" + first.landmark() + "» на карте — ищем без этого условия");
         }
