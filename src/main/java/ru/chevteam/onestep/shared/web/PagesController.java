@@ -14,4 +14,10 @@ public class PagesController {
     public String cabinet() {
         return "forward:/index.html";
     }
+
+    /** О!План — подбор поездки целиком в формате разговора. */
+    @GetMapping("/plan")
+    public String plan() {
+        return "forward:/plan.html";
+    }
 }

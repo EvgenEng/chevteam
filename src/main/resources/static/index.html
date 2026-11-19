@@ -38,6 +38,18 @@
   .brand b { color: var(--sea); }
   .tagline { color: var(--muted); margin: 0; }
 
+  /* Вход в О!План — поездка целиком */
+  .oplan { display: flex; align-items: center; gap: 16px; margin: 18px 0 4px; padding: 14px 18px; border-radius: var(--radius-lg);
+    background: var(--surface); border: 1px dashed var(--sea); color: var(--ink); text-decoration: none; }
+  .oplan:hover { border-style: solid; box-shadow: 0 8px 20px rgba(31,95,191,.12); }
+  .oplan-o { flex: none; width: 44px; height: 44px; border-radius: 12px; background: var(--ink); color: var(--marker);
+    display: grid; place-items: center; font: 700 19px/1 "Unbounded", sans-serif; }
+  .oplan b { display: block; font-size: 16px; }
+  .oplan b i { font-style: normal; font-size: 11px; background: var(--sea); color: #fff; border-radius: 6px; padding: 1px 6px; vertical-align: 2px; margin-left: 4px; }
+  .oplan span span { color: var(--muted); font-size: 14px; }
+  .oplan-go { margin-left: auto; color: var(--sea); font-weight: 600; white-space: nowrap; }
+  @media (max-width: 640px) { .oplan { flex-wrap: wrap; } .oplan-go { margin-left: 60px; } }
+
   /* Герой — сам запрос */
   .ask { padding: 28px 0 8px; }
   .ask h1 {
@@ -189,6 +201,7 @@
   .places .walk { white-space: nowrap; font-weight: 600; }
   .places .walk.taxi { color: var(--muted); font-weight: 500; }
   .cabinet { margin: 0 0 0 auto; display: flex; gap: 12px; align-items: center; font: 600 14px/1 "Onest", sans-serif; }
+  .cabinet[hidden] { display: none; }
   .cabinet span { background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 999px; }
   .cabinet a, footer a { color: var(--muted); }
   footer nav { margin-bottom: 6px; }
@@ -327,6 +340,12 @@
         <button class="primary" id="go" type="submit">Подобрать отель</button>
       </div>
     </form>
+    <a class="oplan" id="oplan" href="/plan">
+      <span class="oplan-o" aria-hidden="true">О!</span>
+      <span><b>А можно просто рассказать о планах <i>new</i></b>
+        <span>О!План соберёт отель, дорогу и трансферы в один бюджет и покажет, где вам будет хорошо.</span></span>
+      <span class="oplan-go">Попробовать О!План →</span>
+    </a>
     <ul class="examples" aria-label="Примеры запросов">
       <li><button type="button">Ялта в июле, тихий отель у моря, двое взрослых и ребёнок 2 года</button></li>
       <li><button type="button">Ялта на 5 ночей, у моря, с пожилыми родителями</button></li>
@@ -1210,6 +1229,12 @@
       return id;
     } catch (e) { return make(); }
   })();
+
+  // О!План: начатый текст переносим, чтобы не набирать заново
+  document.getElementById('oplan').addEventListener('click', e => {
+    const t = document.getElementById('q').value.trim();
+    if (t) { e.preventDefault(); location.href = '/plan?q=' + encodeURIComponent(t); }
+  });
 
   function track(type, extra) {
     if (location.pathname !== '/' && location.pathname !== '/index.html') return;

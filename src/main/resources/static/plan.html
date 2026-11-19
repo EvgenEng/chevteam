@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>О!План — поездка целиком одним разговором</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root {
+    --paper: #F3F6FB;
+    --surface: #FFFFFF;
+    --ink: #12223D;
+    --muted: #5B6B84;
+    --line: #D9E1EC;
+    --sea: #1F5FBF;
+    --sea-soft: #E8F0FC;
+    --marker: #FFE36E;
+    --ok: #237A4B;
+    --ok-soft: #E6F4EC;
+    --part: #A86A00;
+    --part-soft: #FFF4DC;
+    --miss: #B23A33;
+    --miss-soft: #FCEBEA;
+    --radius-lg: 18px;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --chat-w: 380px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 "Onest", system-ui, sans-serif; }
+  a { color: var(--sea); }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+
+  /* ------------------------------------------------ верх */
+  .top { background: var(--ink); color: #fff; }
+  .top-in { display: flex; align-items: center; gap: 18px; padding: 12px 20px; }
+  .brand { font: 700 19px/1 "Unbounded", sans-serif; letter-spacing: -0.02em; color: #fff; text-decoration: none; }
+  .brand b { color: var(--marker); }
+  .tag { font: 600 13px/1 "Onest", system-ui, sans-serif; color: var(--ink); background: var(--marker); border-radius: 999px; padding: 6px 10px; }
+  .top nav { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .top nav button { background: none; border: 0; color: #fff; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+  .top nav button:hover { background: rgba(255,255,255,.1); }
+  .top nav button.new { background: var(--marker); color: var(--ink); font-weight: 600; }
+  .routebar { background: var(--surface); border-bottom: 1px solid var(--line); }
+  .routebar-in { display: flex; align-items: center; gap: 10px; padding: 9px 20px; font-size: 14px; flex-wrap: wrap; }
+  .routebar .pt { font-weight: 600; }
+  .routebar .pt.empty { color: var(--muted); font-weight: 500; }
+  .routebar button.pt { background: none; border: 0; padding: 0; cursor: pointer; color: var(--sea); }
+  .routebar .sep { color: var(--muted); }
+
+  /* ------------------------------------------------ раскладка */
+  .layout { display: grid; grid-template-columns: var(--chat-w) 1fr; height: calc(100vh - 98px); min-height: 520px; }
+  .chat { background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .chat-head { display: flex; gap: 12px; align-items: center; padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+  .logo-o { width: 42px; height: 42px; border-radius: 12px; background: var(--ink); color: var(--marker); display: grid; place-items: center;
+    font: 700 19px/1 "Unbounded", sans-serif; flex: none; }
+  .chat-head b { display: block; font-size: 16px; }
+  .chat-head span { color: var(--muted); font-size: 13px; }
+  .log { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+  .msg { max-width: 92%; font-size: 14px; line-height: 1.5; }
+  .msg.bot { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; }
+  .msg.bot .who { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+  .msg.me { align-self: flex-end; background: var(--sea-soft); border-radius: 14px 14px 4px 14px; padding: 10px 13px; white-space: pre-wrap; }
+  .msg.note { align-self: center; font-size: 12px; color: var(--muted); }
+  .quick { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 10px; }
+  .quick button, .chip-btn { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer;
+    font-size: 13px; font-weight: 500; }
+  .quick button:hover, .chip-btn:hover { border-color: var(--sea); color: var(--sea); }
+  .composer { margin: 0 14px 14px; border: 2px solid var(--ink); border-radius: var(--radius-lg); padding: 10px 10px 8px 12px;
+    box-shadow: 4px 4px 0 var(--ink); background: var(--surface); }
+  .composer:focus-within { border-color: var(--sea); box-shadow: 4px 4px 0 var(--sea); }
+  .composer textarea { width: 100%; border: 0; resize: none; min-height: 64px; max-height: 180px; font: 500 15px/1.45 "Onest", system-ui, sans-serif; color: var(--ink); background: none; }
+  .composer textarea:focus { outline: none; }
+  .composer textarea:disabled { background: none; color: var(--muted); }
+  .composer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .composer-row .hint { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .send { width: 38px; height: 38px; border-radius: 12px; border: 0; background: var(--ink); color: #fff; cursor: pointer; display: grid; place-items: center; }
+  .send:disabled { opacity: .4; cursor: default; }
+  .spin { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--sea); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .work { overflow-y: auto; min-height: 0; }
+  .work-in { max-width: 1120px; margin: 0 auto; padding: 18px 28px 60px; }
+  .crumbs { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  h1 { font: 700 clamp(22px, 2.6vw, 30px)/1.15 "Unbounded", sans-serif; letter-spacing: -0.02em; margin: 0 0 8px; }
+  h2 { font: 700 20px/1.2 "Unbounded", sans-serif; letter-spacing: -0.01em; margin: 0 0 10px; }
+  h3 { font-size: 16px; margin: 0 0 8px; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+  .chip { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 500; }
+  .chip.hl { background: var(--marker); border-color: var(--marker); }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px 22px; }
+  .alert { border-radius: var(--radius); padding: 10px 14px; font-size: 14px; margin: 0 0 14px; background: var(--part-soft); color: #6b4500; }
+  .alert.err { background: var(--miss-soft); color: var(--miss); }
+  .alert.ok { background: var(--ok-soft); color: var(--ok); }
+
+  /* ------------------------------------------------ старт */
+  .ideas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .idea { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; cursor: pointer; text-align: left; padding: 0;
+    transition: transform .15s, box-shadow .15s; }
+  .idea:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(18,34,61,.08); }
+  .idea svg { display: block; width: 100%; height: 150px; }
+  .idea div { padding: 14px 16px 16px; }
+  .idea b { font-size: 16px; display: block; margin-bottom: 4px; }
+  .idea p { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+  .idea span { color: var(--sea); font-weight: 600; font-size: 13px; }
+  .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 22px; }
+  .promise div { font-size: 13px; color: var(--muted); }
+  .promise b { display: block; color: var(--ink); font-size: 14px; margin-bottom: 2px; }
+
+  /* ------------------------------------------------ ожидание */
+  .wait { display: grid; place-items: center; text-align: center; padding: 50px 0; }
+  .porthole { width: 220px; height: 220px; position: relative; }
+  .porthole svg { width: 100%; height: 100%; }
+  .waves { animation: drift 4s ease-in-out infinite alternate; }
+  .boat { animation: bob 2.4s ease-in-out infinite; transform-origin: center; }
+  .sun { animation: glow 3s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: translateX(-10px); } to { transform: translateX(10px); } }
+  @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-4px) rotate(2deg); } }
+  @keyframes glow { from { opacity: .75; } to { opacity: 1; } }
+  .wait-text { font: 600 19px/1.3 "Onest", system-ui, sans-serif; margin-top: 18px; min-height: 2.6em; transition: opacity .3s; }
+  .wait .chips { justify-content: center; margin-top: 8px; }
+  @media (prefers-reduced-motion: reduce) { .waves, .boat, .sun, .spin { animation: none; } }
+
+  /* ------------------------------------------------ вопрос */
+  .question h2 { margin-bottom: 6px; }
+  .question p { margin: 0 0 14px; color: var(--muted); }
+  .question .chips { margin: 0; }
+  .question .chip-btn { font-size: 14px; padding: 8px 14px; }
+
+  /* ------------------------------------------------ варианты */
+  .opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+  .opt { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; }
+  .opt.best { border: 2px solid var(--sea); }
+  .tiles { position: relative; height: 150px; overflow: hidden; background: #dfe7f1; }
+  .tiles .mosaic { position: absolute; display: grid; grid-template-columns: repeat(3, 256px); }
+  .tiles img { width: 256px; height: 256px; display: block; }
+  .tiles .pin { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -22px 0 0 -11px; border-radius: 50% 50% 50% 0;
+    background: var(--sea); transform: rotate(-45deg); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+  .tiles .badge { position: absolute; left: 10px; top: 10px; background: rgba(255,255,255,.95); border-radius: 8px; padding: 3px 8px; font-size: 11px; font-weight: 600; }
+  .tiles .best-badge { left: auto; right: 10px; background: var(--sea); color: #fff; }
+  .tiles .attr { position: absolute; right: 4px; bottom: 2px; font-size: 9px; color: #333; background: rgba(255,255,255,.75); padding: 0 3px; }
+  .opt-body { padding: 14px 16px 16px; display: flex; flex-direction: column; flex: 1; }
+  .meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 4px; flex-wrap: wrap; }
+  .score { background: var(--ok-soft); color: var(--ok); font-weight: 700; border-radius: 6px; padding: 2px 6px; font-size: 12px; }
+  .opt h3 { margin: 2px 0 2px; }
+  .linkish { background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink); text-align: left; font: inherit; }
+  .linkish:hover { color: var(--sea); }
+  .addr { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 10px; }
+  .tags span { border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; font-size: 11px; }
+  .ticks { list-style: none; margin: 0 0 12px; padding: 0; font-size: 12.5px; }
+  .ticks li { padding-left: 18px; position: relative; margin: 3px 0; }
+  .ticks li::before { content: "✓"; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
+  .ticks li.part::before { content: "~"; color: var(--part); }
+  .ticks li.miss::before { content: "✕"; color: var(--miss); }
+  .ticks li.info::before { content: "i"; color: var(--muted); font-style: italic; }
+  .ticks li.fact::before { content: "◎"; color: var(--sea); }
+  .price { margin-top: auto; }
+  .price b { font: 700 24px/1.1 "Onest", system-ui, sans-serif; display: block; }
+  .price .sub { font-size: 12px; color: var(--muted); }
+  .fit { display: inline-block; margin: 6px 0 0; font-size: 12px; font-weight: 600; border-radius: 6px; padding: 2px 7px; }
+  .fit.ok { background: var(--ok-soft); color: var(--ok); }
+  .fit.no { background: var(--miss-soft); color: var(--miss); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px; padding: 12px 18px;
+    font-weight: 600; cursor: pointer; background: var(--ink); color: #fff; text-decoration: none; }
+  .btn:hover { background: #1d3359; }
+  .btn.wide { width: 100%; margin-top: 12px; }
+  .btn.ghost { background: var(--sea-soft); color: var(--sea); }
+  .btn.ghost:hover { background: #d8e5fa; }
+  .btn.line { background: none; border: 1px solid var(--line); color: var(--ink); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .more { margin-top: 16px; }
+
+  details.acc { border-top: 1px solid var(--line); padding: 12px 0; }
+  details.acc > summary { cursor: pointer; font-weight: 600; color: var(--sea); list-style: none; display: flex; gap: 8px; align-items: baseline; }
+  details.acc > summary::-webkit-details-marker { display: none; }
+  details.acc > summary::before { content: "▸"; transition: transform .15s; display: inline-block; }
+  details.acc[open] > summary::before { transform: rotate(90deg); }
+  details.acc > summary .muted { font-weight: 400; font-size: 13px; }
+  details.acc > .acc-body { padding-top: 10px; }
+
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.cmp th, table.cmp td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.cmp th { font-weight: 600; color: var(--muted); font-size: 12px; }
+  table.cmp td.best { background: var(--ok-soft); font-weight: 600; }
+  table.cmp tr.changed td { background: var(--marker); }
+  table.cmp tr.changed td:first-child { background: none; font-weight: 600; }
+
+  /* ------------------------------------------------ отель */
+  .hotel { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
+  .back { background: none; border: 0; color: var(--sea); cursor: pointer; padding: 0; font-weight: 600; margin-bottom: 10px; }
+  .map .tiles { height: 100%; }
+  .map { height: 300px; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--line); margin: 12px 0; z-index: 0; }
+  .facts { display: grid; gap: 10px; }
+  .fact { display: grid; grid-template-columns: 1fr 70px; gap: 4px 12px; font-size: 13px; }
+  .fact b { font-weight: 600; }
+  .fact .how { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+  .conf { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); justify-content: flex-end; }
+  .conf i { display: block; width: 36px; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .conf i::after { content: ""; display: block; height: 100%; width: var(--w); background: var(--sea); }
+  .side { position: sticky; top: 0; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 18px; }
+  .panel h2 { font-size: 19px; margin-bottom: 4px; }
+  .panel .total { font: 700 28px/1.1 "Onest", system-ui, sans-serif; margin: 10px 0 2px; }
+  .panel .route { background: var(--ok-soft); border-radius: var(--radius); padding: 12px; margin-top: 12px; font-size: 13px; }
+  .panel .route b { display: block; font-size: 14px; margin-bottom: 6px; }
+  .panel .route .big { font-size: 15px; font-weight: 500; margin-top: 6px; }
+  .costs { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  .costs li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; }
+  .costs li.sum { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 8px; font-weight: 700; }
+  .costs li.aside { color: var(--muted); }
+  .panel .thumb { border-radius: var(--radius); overflow: hidden; margin: -4px -4px 12px; }
+  .panel .thumb .tiles { height: 120px; }
+
+  .routes { display: grid; gap: 12px; }
+  .rt { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .rt.sel { border: 2px solid var(--sea); }
+  .rt.off { opacity: .65; background: var(--paper); }
+  .rt h4 { margin: 0; font-size: 15px; }
+  .rt .pr { font-weight: 700; }
+  .rt p { margin: 6px 0; font-size: 13px; }
+  .rt .cav { color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+  .rt .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+  .delta { font-size: 12px; color: var(--muted); }
+  .delta.up { color: var(--miss); }
+  .delta.down { color: var(--ok); }
+
+  .checks { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  .checks li { padding: 4px 0 4px 22px; position: relative; }
+  .checks li::before { position: absolute; left: 0; font-weight: 700; }
+  .checks li.OK::before { content: "✓"; color: var(--ok); }
+  .checks li.ASK { color: #7a5200; }
+  .checks li.ASK::before { content: "?"; color: var(--part); }
+  .checks li.FAIL { color: var(--miss); }
+  .checks li.FAIL::before { content: "!"; }
+
+  /* ------------------------------------------------ расписание */
+  .timeline { list-style: none; margin: 0; padding: 0 0 0 22px; border-left: 2px solid var(--line); }
+  .timeline li { position: relative; padding: 0 0 18px 14px; }
+  .timeline li::before { content: ""; position: absolute; left: -29px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--sea); border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--sea); }
+  .timeline li.stay::before { background: var(--marker); box-shadow: 0 0 0 1px var(--part); }
+  .timeline li.stay { background: var(--paper); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 18px; }
+  .timeline b { display: block; }
+  .timeline .when { font-size: 13px; color: var(--muted); }
+  .timeline .note { font-size: 12px; color: var(--muted); }
+
+  .form-row { display: grid; gap: 4px; margin: 0 0 12px; }
+  .form-row label { font-size: 13px; font-weight: 500; }
+  .form-row input, .form-row select { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; background: var(--surface); }
+  .form-row input:focus, .form-row select:focus { outline: none; border-color: var(--sea); box-shadow: 0 0 0 3px var(--sea-soft); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; margin: 8px 0; }
+  .check input { margin-top: 3px; }
+
+  .done-card { text-align: center; padding: 30px 24px; }
+  .done-card .big { font-size: 46px; }
+
+  dialog { border: 0; border-radius: var(--radius-lg); padding: 0; width: min(560px, 94vw); box-shadow: 0 30px 80px rgba(18,34,61,.35); color: var(--ink); }
+  dialog::backdrop { background: rgba(18,34,61,.45); }
+  .dlg { padding: 22px 24px; }
+  .dlg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .dlg-head h2 { margin: 0; }
+  .x { width: 34px; height: 34px; border-radius: 10px; border: 0; background: var(--paper); cursor: pointer; font-size: 18px; }
+  .hist { display: grid; gap: 10px; max-height: 60vh; overflow-y: auto; }
+  .hist button { text-align: left; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; background: var(--surface); cursor: pointer; font-size: 13px; }
+  .hist button:hover { border-color: var(--sea); }
+  .hist b { font-size: 14px; display: block; margin-bottom: 4px; }
+
+  .two { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
+  .section { margin-top: 18px; }
+
+  @media (max-width: 1180px) { .opts { grid-template-columns: repeat(2, 1fr); } .hotel, .two { grid-template-columns: 1fr; } .side { position: static; } }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; height: auto; }
+    .chat { border-right: 0; border-bottom: 1px solid var(--line); max-height: 70vh; }
+    .work { overflow: visible; }
+    .opts, .ideas, .promise { grid-template-columns: 1fr; }
+    .top nav button:not(.new) { display: none; }
+    .work-in { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="/" title="Обычный поиск отеля">О!<b>дин шаг</b></a>
+    <span class="tag">О!План</span>
+    <nav aria-label="О!План">
+      <button type="button" id="nav-how">Как это работает</button>
+      <button type="button" id="nav-history">История</button>
+      <button type="button" class="new" id="nav-new">Новый поиск +</button>
+    </nav>
+  </div>
+</header>
+<div class="routebar"><div class="routebar-in" id="routebar" aria-label="Маршрут"></div></div>
+
+<div class="layout">
+  <aside class="chat" aria-label="Разговор с О!Планом">
+    <div class="chat-head"><div class="logo-o" aria-hidden="true">О!</div><div><b>О!План</b><span>Соберу отель, дорогу и трансферы в один бюджет</span></div></div>
+    <div class="log" id="log" aria-live="polite"></div>
+    <div class="quick" id="quick"></div>
+    <form class="composer" id="composer">
+            <textarea id="msg" aria-label="Сообщение О!Плану" maxlength="1000" placeholder="Куда хочется, когда, кто едет и на какой бюджет?"></textarea>
+      <div class="composer-row"><span class="hint" id="hint">Можно написать своими словами</span>
+        <button class="send" id="send" type="submit" aria-label="Отправить"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </div>
+    </form>
+  </aside>
+  <main class="work" id="work"><div class="work-in" id="view"></div></main>
+</div>
+
+<dialog id="dlg-guests"><form class="dlg" id="guests-form" method="dialog">
+  <div class="dlg-head"><h2>Даты и гости</h2><button class="x" value="cancel" aria-label="Закрыть">×</button></div>
+  <div class="form-grid">
+    <div class="form-row"><label for="g-in">Заезд</label><input id="g-in" type="date" required></div>
+    <div class="form-row"><label for="g-out">Выезд</label><input id="g-out" type="date" required></div>
+    <div class="form-row"><label for="g-ad">Взрослые</label><input id="g-ad" type="number" min="1" max="10" required></div>
+    <div class="form-row"><label for="g-ch">Дети</label><input id="g-ch" type="number" min="0" max="6" required></div>
+  </div>
+  <div class="form-grid" id="g-ages"></div>
+  <p class="muted small" id="g-nights"></p>
+  <p class="alert err" id="g-err" hidden></p>
+  <button class="btn wide" value="default" id="g-save">Сохранить и пересчитать</button>
+</form></dialog>
+
+<dialog id="dlg-history"><div class="dlg">
+  <div class="dlg-head"><h2>История поездок</h2><button class="x" data-close aria-label="Закрыть">×</button></div>
+  <div class="hist" id="hist"></div>
+</div></dialog>
+
+<dialog id="dlg-how"><div class="dlg">
+  <div class="dlg-head"><h2>Как это работает</h2><button class="x" data-close aria-label="Закрыть">×</button></div>
+  <ol style="padding-left:20px;margin:0 0 12px">
+    <li><b>Пишете поездку своими словами</b> — куда, когда, кто едет и общий бюджет.</li>
+    <li><b>Задаю только нужные вопросы</b> — откуда едете и сколько оставить на личные расходы.</li>
+    <li><b>Сравниваю отели</b> и для каждого считаю всю поездку: проживание, дорогу туда-обратно и оба трансфера. Показываю 3 варианта, которые помещаются в бюджет.</li>
+    <li><b>Любое изменение</b> — даты, гости, транспорт — пересчитывает поездку целиком, а вы видите «было / стало» и решаете сами.</li>
+    <li><b>Сохраняете план</b> и скачиваете его в PDF.</li>
+  </ol>
+  <p class="muted small" style="margin:0 0 8px">Отели Ялты и Алушты — реальные, их окружение посчитано по OpenStreetMap и карте высот: «Проверено по карте».</p>
+  <p class="muted small" style="margin:0">Дорога и трансферы — демо-расчёт по расстоянию, цены и время предварительные. Учитываем реальные ограничения:
+    аэропорт Симферополя закрыт, поэтому в Крым предлагаем поезд «Таврия» или машину через Крымский мост.</p>
+</div></dialog>
+
+<iframe id="print-frame" title="План поездки для печати" style="position:absolute;width:0;height:0;border:0;left:-9999px"></iframe>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  // =================================================================== утилиты
+  const $ = (s, root = document) => root.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const NF = new Intl.NumberFormat('ru-RU');
+  const rub = n => n == null ? '—' : NF.format(Math.round(Number(n))) + ' ₽';
+  const approx = n => '≈ ' + rub(n);
+  const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'нояб', 'дек'];
+  const MONTHS_FULL = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  const MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  const parseD = s => { const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
+  const day = s => { const d = parseD(s); return d.getDate() + ' ' + MONTHS[d.getMonth()]; };
+  const dayFull = s => { const d = parseD(s); return d.getDate() + ' ' + MONTHS_FULL[d.getMonth()] + ' ' + d.getFullYear() + ' г.'; };
+  const dt = s => { if (!s) return ''; const d = parseD(s); return d.getDate() + ' ' + MONTHS[d.getMonth()] + '., ' + String(s).slice(11, 16); };
+  const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const plural = (n, one, few, many) => { const a = n % 100, b = n % 10; return a > 10 && a < 15 ? many : b === 1 ? one : b > 1 && b < 5 ? few : many; };
+  const dur = m => { const h = Math.floor(m / 60), r = m % 60; return h ? (r ? `${h} ч ${r} мин` : `${h} ч`) : `${r} мин`; };
+  const guestsText = (a, kids) => a + ' ' + plural(a, 'взрослый', 'взрослых', 'взрослых')
+    + (kids && kids.length ? ' · ' + kids.length + ' ' + plural(kids.length, 'ребёнок', 'ребёнка', 'детей') : '');
+  const MODE_NOUN = { PLANE: 'самолёт', TRAIN: 'поезд', CAR: 'машину' };
+  const MODE_ON = { PLANE: 'на самолёте', TRAIN: 'на поезде', CAR: 'на машине' };
+  const MEAL = { ROOM_ONLY: 'без питания', BREAKFAST: 'завтрак', HALF_BOARD: 'полупансион', FULL_BOARD: 'полный пансион', ALL_INCLUSIVE: 'всё включено' };
+  const FACILITY = { POOL: 'Бассейн', SPA: 'Спа', GYM: 'Спортзал', PARKING: 'Парковка', RESTAURANT: 'Ресторан', BAR: 'Бар', WIFI: 'Wi‑Fi',
+    KIDS_CLUB: 'Для детей', BEACH: 'Пляж', AQUAPARK: 'Аквапарк', EV_CHARGER: 'Зарядка авто', BIKE_RENTAL: 'Велосипеды' };
+  const FACT_ORDER = ['SEA_DISTANCE', 'STAIRS_TO_SEA', 'SEA_CLIMB', 'SEA_VIEW', 'SUNSET_VIEW', 'ROAD_NOISE', 'NIGHTLIFE', 'CONSTRUCTION',
+    'BEACH_SURFACE', 'FOOD_WALK', 'GROCERY', 'BUS_STOP', 'GREENERY', 'SIGHTS'];
+  const newKey = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => (Math.random() * 16 | 0).toString(16));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  async function api(url, body, headers) {
+    const res = await fetch(url, { method: body === undefined ? 'GET' : 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+      body: body === undefined ? undefined : JSON.stringify(body) });
+    const data = res.status === 204 ? null : await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && (data.detail || data.message)) || 'Ошибка ' + res.status);
+    return data;
+  }
+
+  const store = {
+    get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* приватный режим — живём без истории */ } }
+  };
+
+  const SESSION = (() => { try { let s = sessionStorage.getItem('onestep-session'); if (!s) { s = newKey(); sessionStorage.setItem('onestep-session', s); } return s; } catch (e) { return newKey(); } })();
+  function track(type, extra) {
+    try { fetch('/api/v1/metrics/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify(Object.assign({ sessionId: SESSION, type }, extra || {})) }).catch(() => {}); } catch (e) { /* метрика не мешает гостю */ }
+  }
+
+  // =================================================================== состояние
+  const blank = () => ({ text: '', origin: null, reserve: null, transport: null, exclude: [], pending: null,
+    plan: null, chosen: null, proposal: null, returnTo: null, view: 'intro', busy: false, saved: null });
+  let S = blank();
+  const log = $('#log'), quickEl = $('#quick'), view = $('#view'), msg = $('#msg');
+
+  // =================================================================== чат
+  function say(who, html) {
+    const el = document.createElement('div');
+    el.className = 'msg ' + who;
+    el.innerHTML = who === 'bot' ? '<span class="who">О!План</span>' + html : html;
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+  }
+  function quick(items) {
+    quickEl.innerHTML = '';
+    (items || []).forEach(label => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = label;
+      b.addEventListener('click', () => onQuick(label));
+      quickEl.appendChild(b);
+    });
+    log.scrollTop = log.scrollHeight;
+  }
+  function busy(on, text) {
+    S.busy = on;
+    $('#send').disabled = on;
+    $('#hint').innerHTML = on ? '<span class="spin"></span> ' + esc(text || 'Запрос выполняется') : 'Можно написать своими словами';
+  }
+  function lockComposer(text) {
+    msg.disabled = true; msg.value = ''; msg.placeholder = text; $('#send').disabled = true;
+    $('#hint').textContent = 'Поездка оформлена';
+    quick([]);
+  }
+  function unlockComposer() {
+    msg.disabled = false; msg.placeholder = 'Куда хочется, когда, кто едет и на какой бюджет?'; $('#send').disabled = false;
+    $('#hint').textContent = 'Можно написать своими словами';
+  }
+
+  $('#composer').addEventListener('submit', e => { e.preventDefault(); const t = msg.value.trim(); if (t && !S.busy) { msg.value = ''; send(t); } });
+  msg.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#composer').requestSubmit(); } });
+
+  function onQuick(label) {
+    if (S.busy) return;
+    if (label === 'Другой город' || label === 'Другая сумма') {
+      msg.placeholder = label === 'Другой город' ? 'Напишите город отправления' : 'Например: оставить 15 тысяч';
+      msg.focus(); return;
+    }
+    if (label === 'Подешевле') return cheaper();
+    if (label === 'Почему эти?') return why();
+    if (label === 'Другие даты' || label === 'Даты и гости') return openGuests();
+    if (label === 'Другой отель') return otherHotel();
+    if (label === 'Другой транспорт') return showRoutes();
+    if (label === 'Только отель, дорога своя') return send('Только отель');
+    send(label);
+  }
+
+  function send(text) {
+    say('me', esc(text));
+    if (S.pending) {
+      if (S.pending === 'ORIGIN') S.origin = text;
+      else if (S.pending === 'RESERVE') S.reserve = text;
+      else S.text += '\n' + text;
+      return runPlan();
+    }
+    if (!S.text) { S.text = text; return runPlan(); }
+    const t = text.toLowerCase();
+    if (/подешевле|дешевле|бюджетн/.test(t) && S.plan && !S.chosen) return cheaper();
+    if (/почему/.test(t) && S.plan && !S.chosen) return why();
+    if (S.chosen) {
+      const mode = /самол|перел[её]т|лет(им|еть)/.test(t) ? 'PLANE' : /поезд|ж\/?д/.test(t) ? 'TRAIN' : /машин|авто(?!бус)/.test(t) ? 'CAR' : null;
+      if (mode) return proposeChange({ transport: mode }, 'Посчитал поездку ' + MODE_ON[mode] + '.');
+      if (/дат|гост|ребён|ребен|дет/.test(t)) return openGuests();
+      if (/другой отель|другие отели|к подборке/.test(t)) return otherHotel();
+    }
+    // уточнение пожеланий — пересобираем подборку
+    S.text += '\n' + text;
+    S.chosen = null;
+    runPlan();
+  }
+
+  // =================================================================== разговор с сервером
+  const WAIT = ['Учитываем ваши пожелания', 'Сравниваем варианты в вашем бюджете', 'Считаем дорогу и трансферы', 'Посмотрим, где вам будет хорошо'];
+
+  async function runPlan() {
+    busy(true);
+    const started = Date.now();
+    const chipsBefore = S.plan ? S.plan.chips : [];
+    renderWait(chipsBefore);
+    track('SEARCH', {});
+    let p;
+    try {
+      p = await api('/api/v1/trips/plan', { text: S.text, origin: S.origin, reserve: S.reserve, transport: S.transport, excludeHotels: S.exclude });
+    } catch (err) {
+      busy(false);
+      say('bot', 'Не получилось собрать поездку: ' + esc(err.message) + '. Попробуйте ещё раз.');
+      renderIntro();
+      return;
+    }
+    const left = 1300 - (Date.now() - started);
+    if (left > 0) await sleep(left);
+    busy(false);
+    if (p.stage === 'ASK') {
+      S.pending = p.question.field;
+      if (p.question.field === 'ORIGIN') S.origin = null;
+      say('bot', esc(p.question.text));
+      const chips = p.question.chips.map(c => c === 'Только отель' ? 'Только отель, дорога своя' : c);
+      if (p.question.field === 'ORIGIN') chips.splice(chips.length - 1, 0, 'Другой город');
+      if (p.question.field === 'RESERVE') chips.push('Другая сумма');
+      quick(chips);
+      renderQuestion(p);
+      renderRoute(p.chips);
+      return;
+    }
+    S.pending = null;
+    S.plan = p;
+    S.chosen = null;
+    let text = esc(p.message);
+    if (p.notice) text += '<br><br>' + esc(p.notice);
+    say('bot', text);
+    quick(p.options.length ? ['Подешевле', 'Почему эти?', 'Другие даты'] : ['Другие даты']);
+    renderOptions();
+  }
+
+  // =================================================================== шапка-маршрут
+  function renderRoute(chips) {
+    const p = S.plan, c = p && p.context, t = S.chosen && S.chosen.trip;
+    const from = (t && t.origin) || (c && c.origin) || null;
+    const to = (t && t.hotelCity) || (c && c.destination) || ((chips || [])[0]) || null;
+    const parts = [`<span aria-hidden="true">🌐</span>`,
+      from ? `<button class="pt" type="button" id="rb-from" title="Изменить город отправления">${esc(from)}</button>`
+        : (c && !c.origin ? `<span class="pt">Только отель</span>` : `<span class="pt empty">Откуда едем?</span>`),
+      `<span class="sep">→</span>`, to ? `<span class="pt">${esc(to)}</span>` : `<span class="pt empty">Куда поедем?</span>`];
+    const dates = t ? [t.checkIn, t.checkOut] : c ? [c.checkIn, null] : null;
+    if (dates) parts.push(`<span class="sep">·</span><span>${day(dates[0])}${dates[1] ? ' — ' + day(dates[1]) : ''}</span>`);
+    if (t || c) parts.push(`<span class="sep">·</span><span>${esc(guestsText((t || c).adults, (t || c).childrenAges))}</span>`);
+    $('#routebar').innerHTML = parts.join(' ');
+    const fb = $('#rb-from');
+    if (fb) fb.addEventListener('click', () => { S.pending = 'ORIGIN'; say('bot', 'Из какого города отправляетесь?'); quick(['Москва', 'Санкт-Петербург', 'Краснодар', 'Другой город']); msg.focus(); });
+  }
+
+  // =================================================================== экраны
+  const IDEA_ART = {
+    sea: `<svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="300" height="150" fill="#BFE0F7"/><circle cx="235" cy="40" r="20" fill="#FFE36E"/><path d="M0 70 Q40 40 80 62 T160 58 T240 64 T300 56 V150 H0Z" fill="#7FA77C"/><path d="M0 92 Q30 86 60 92 T120 92 T180 92 T240 92 T300 92 V150 H0Z" fill="#1F5FBF"/><path d="M0 108 Q30 102 60 108 T120 108 T180 108 T240 108 T300 108" stroke="#8FB8EF" stroke-width="3" fill="none"/><path d="M140 88 l10 -24 v24z" fill="#fff"/><path d="M128 90 h34 l-6 7 h-22z" fill="#12223D"/></svg>`,
+    hills: `<svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="300" height="150" fill="#E8F0FC"/><path d="M0 110 L70 40 L120 90 L170 30 L240 100 L300 60 V150 H0Z" fill="#5B7F6A"/><path d="M150 50 L170 30 L190 52 L178 48 L170 56 L160 46Z" fill="#fff"/><path d="M0 130 Q75 110 150 128 T300 120 V150 H0Z" fill="#A9C79A"/><circle cx="60" cy="34" r="14" fill="#FFE36E"/></svg>`,
+    city: `<svg viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="300" height="150" fill="#FFF4DC"/><rect x="30" y="60" width="40" height="90" fill="#12223D"/><rect x="78" y="35" width="34" height="115" fill="#1F5FBF"/><rect x="120" y="75" width="46" height="75" fill="#5B6B84"/><path d="M175 150 V70 q22 -30 44 0 V150Z" fill="#B23A33"/><rect x="228" y="50" width="42" height="100" fill="#12223D"/><g fill="#FFE36E"><rect x="38" y="70" width="6" height="8"/><rect x="54" y="90" width="6" height="8"/><rect x="86" y="50" width="6" height="8"/><rect x="98" y="80" width="6" height="8"/><rect x="236" y="62" width="6" height="8"/><rect x="252" y="96" width="6" height="8"/></g></svg>`
+  };
+  const IDEAS = [
+    { art: 'sea', title: 'К морю', text: 'Ялта: море рядом, без лестниц и подъёмов в гору.', q: 'Ялта, 5 ночей в июне, двое взрослых, до 120 тысяч на дорогу, отель и трансферы, до моря пешком без лестниц' },
+    { art: 'hills', title: 'Тихо и с видом', text: 'Алушта: вид на море и тишина вечером.', q: 'Алушта на неделю в сентябре, двое взрослых и ребёнок 6 лет, до 150 тысяч на всё, тихо, с видом на море' },
+    { art: 'city', title: 'На выходные', text: 'Петербург: новый город, знакомый ритм отдыха.', q: 'Санкт-Петербург на выходные в декабре, двое взрослых, до 60 тысяч на дорогу и отель' }
+  ];
+
+  function renderIntro() {
+    S.view = 'intro';
+    view.innerHTML = `<div class="crumbs">О!дин шаг · О!План</div>
+      <h1>Хорошая поездка начинается с&nbsp;идеи</h1>
+      <p class="lead">Напишите, куда хочется. Соберу отель, дорогу и трансферы в один план и уложу его в ваш бюджет.</p>
+      <div class="ideas">${IDEAS.map((i, n) => `<button class="idea" type="button" data-idea="${n}">${IDEA_ART[i.art]}<div><b>${esc(i.title)}</b><p>${esc(i.text)}</p><span>Начать с этой идеи →</span></div></button>`).join('')}</div>
+      <div class="promise">
+        <div><b>Вся поездка в бюджете</b>Проживание, дорога туда-обратно и оба трансфера — одна сумма.</div>
+        <div><b>Проверено по карте</b>Сколько идти до моря, есть ли лестницы и шумные улицы — посчитано по OpenStreetMap.</div>
+        <div><b>Честно про дорогу</b>Аэропорт Симферополя закрыт — предложу поезд «Таврия» или машину.</div>
+      </div>`;
+    view.querySelectorAll('[data-idea]').forEach(b => b.addEventListener('click', () => { msg.value = IDEAS[+b.dataset.idea].q; msg.focus(); }));
+    renderRoute();
+  }
+
+  let waitTimer = null;
+  function renderWait(chips) {
+    S.view = 'wait';
+    clearInterval(waitTimer);
+    view.innerHTML = `<div class="wait" role="status">
+      <div class="porthole"><svg viewBox="0 0 220 220" aria-hidden="true">
+        <defs><clipPath id="win"><ellipse cx="110" cy="110" rx="72" ry="88"/></clipPath></defs>
+        <ellipse cx="110" cy="110" rx="90" ry="106" fill="#1F5FBF"/><ellipse cx="110" cy="110" rx="80" ry="96" fill="#12223D"/>
+        <g clip-path="url(#win)"><rect width="220" height="220" fill="#CFE7FA"/><circle class="sun" cx="140" cy="70" r="16" fill="#FFE36E"/>
+          <path d="M20 112 Q60 92 100 108 T200 104 V220 H20Z" fill="#7FA77C"/>
+          <g class="waves"><path d="M0 132 Q25 124 50 132 T100 132 T150 132 T200 132 T250 132 V220 H0Z" fill="#1F5FBF"/>
+          <path d="M0 150 Q25 144 50 150 T100 150 T150 150 T200 150 T250 150" stroke="#8FB8EF" stroke-width="3" fill="none"/></g>
+          <g class="boat"><path d="M104 126 l10 -26 v26z" fill="#fff"/><path d="M92 128 h34 l-6 8 h-22z" fill="#12223D"/></g></g>
+        <rect x="190" y="98" width="10" height="44" rx="5" fill="#FFE36E"/><circle cx="195" cy="154" r="6" fill="#FFE36E"/></svg></div>
+      <div class="wait-text" id="wait-text">${WAIT[0]}</div>
+      ${chips && chips.length ? `<div class="chips">${chips.map(c => `<span class="chip">${esc(c)}</span>`).join('')}</div>` : ''}
+    </div>`;
+    let i = 0;
+    waitTimer = setInterval(() => {
+      const el = $('#wait-text');
+      if (!el || S.view !== 'wait') { clearInterval(waitTimer); return; }
+      i = (i + 1) % WAIT.length;
+      el.style.opacity = 0;
+      setTimeout(() => { el.textContent = WAIT[i]; el.style.opacity = 1; }, 250);
+    }, 1400);
+  }
+
+  /** Чипсы по текущей поездке: после смены дат и гостей они не должны показывать старое. */
+  function tripChips(t) {
+    const c = S.plan && S.plan.context;
+    const wishes = (c && c.wishes || []).filter(w => !/\d|взр|реб|дет|ноч|^из /i.test(w) && w !== t.hotelCity && w !== (c && c.destination));
+    const out = [t.hotelCity, day(t.checkIn) + ' — ' + day(t.checkOut), guestsText(t.adults, t.childrenAges)].concat(wishes);
+    if (t.origin) out.push('Из ' + t.origin);
+    if (t.route) out.push(t.route.title);
+    if (t.budget != null) out.push('На весь отдых: ' + rub(t.budget));
+    if (t.reserve > 0) out.push('Другие расходы: ' + rub(t.reserve));
+    return out;
+  }
+
+  function chipsRow(chips) {
+    return chips && chips.length ? `<div class="chips">${chips.map(c => `<span class="chip">${esc(c)}</span>`).join('')}</div>` : '';
+  }
+
+  function renderQuestion(p) {
+    S.view = 'ask';
+    view.innerHTML = `${chipsRow(p.chips)}
+      <div class="card question"><h2>${esc(p.question.title)}</h2><p>${esc(p.question.text)}</p>
+      <div class="chips">${p.question.chips.map(c => `<button class="chip-btn" type="button" data-a="${esc(c === 'Только отель' ? 'Только отель, дорога своя' : c)}">${esc(c)}</button>`).join('')}</div></div>`;
+    view.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => onQuick(b.dataset.a)));
+  }
+
+  // ------------------------------------------------------------------- карта-превью из тайлов OSM
+  function tiles(lat, lon, zoom, label) {
+    const z = zoom || 14, n = 2 ** z;
+    const xf = (lon + 180) / 360 * n;
+    const yf = (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n;
+    const x0 = Math.floor(xf) - 1, y0 = Math.floor(yf) - 1;
+    const px = (xf - x0) * 256, py = (yf - y0) * 256;
+    let imgs = '';
+    for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) {
+      imgs += `<img alt="" loading="lazy" src="https://tile.openstreetmap.org/${z}/${x0 + dx}/${y0 + dy}.png">`;
+    }
+    return `<div class="tiles"><div class="mosaic" style="left:calc(50% - ${px}px);top:calc(50% - ${py}px)">${imgs}</div><span class="pin"></span>${label || ''}<span class="attr">© OpenStreetMap</span></div>`;
+  }
+
+  // ------------------------------------------------------------------- варианты
+  function topFacts(hotel, n) {
+    const facts = (hotel.verified && hotel.verified.facts) || [];
+    return facts.slice().sort((a, b) => rank(a.code) - rank(b.code)).slice(0, n);
+  }
+  const rank = code => { const i = FACT_ORDER.indexOf(code); return i < 0 ? 99 : i; };
+  const fact = (hotel, code) => ((hotel.verified && hotel.verified.facts) || []).find(f => f.code === code);
+  const facilities = hotel => ((hotel.services && hotel.services.facilities) || []).filter(f => f.available).map(f => FACILITY[f.facility] || null).filter(Boolean);
+
+  function optionCard(o, i) {
+    const t = o.trip, h = o.hotel;
+    const ticks = [];
+    if (t.route) ticks.push(`<li>${t.route.transfers > 0 ? 'Дорога и оба трансфера включены' : 'Дорога туда и обратно включена'}</li>`);
+    (h.reasons || []).filter(r => r.kind === 'MATCH').slice(0, 2).forEach(r => ticks.push(`<li>${esc(r.text)}</li>`));
+    topFacts(h, 2).forEach(f => ticks.push(`<li class="fact">${esc(f.title)}: ${esc(f.value)}</li>`));
+    (h.reasons || []).filter(r => r.kind === 'MISS').slice(0, 1).forEach(r => ticks.push(`<li class="miss">${esc(r.text)}</li>`));
+    const tags = facilities(h).slice(0, 4);
+    const fit = t.fits == null ? '' : t.fits ? `<span class="fit ok">В бюджете · остаётся ${rub(t.budgetLeft)}</span>` : `<span class="fit no">Дороже бюджета на ${rub(-t.budgetLeft)}</span>`;
+    const badge = h.dataSource === 'OSM' ? '<span class="badge">реальный отель · OSM</span>' : '<span class="badge">демо-карточка</span>';
+    const best = i === 0 ? '<span class="badge best-badge">Лучшее совпадение</span>' : '';
+    return `<article class="opt${i === 0 ? ' best' : ''}">
+      ${tiles(h.location.lat, h.location.lon, 15, badge + best)}
+      <div class="opt-body">
+        <div class="meta"><span class="score">${h.matchPercent}%</span><span>совпадение</span>${h.stars ? `<span>${'★'.repeat(h.stars)}</span>` : ''}${h.reviewsCount ? `<span>${h.rating} · ${h.reviewsCount} отзывов</span>` : ''}</div>
+        <h3><button class="linkish" type="button" data-open="${i}">${esc(h.name)}</button></h3>
+        <div class="addr">${esc([h.district, h.city].filter(Boolean).join(', '))}</div>
+        ${tags.length ? `<div class="tags">${tags.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : ''}
+        <ul class="ticks">${ticks.join('')}</ul>
+        <div class="price"><b>${approx(t.total)}</b>
+          <div class="sub">за всю поездку · ${esc(guestsText(t.adults, t.childrenAges))}</div>
+          ${t.route ? `<div class="sub">${esc(t.route.title)} · ${esc(t.origin)} → ${esc(t.route.hub || t.hotelCity)}</div>` : '<div class="sub">Только проживание</div>'}
+          <div class="sub">${t.route ? 'Отель + дорога' + (t.route.transfers > 0 ? ' + оба трансфера' : '') : ''}</div>
+          ${fit}
+          <button class="btn wide" type="button" data-pick="${i}">Выбрать поездку</button>
+        </div>
+      </div></article>`;
+  }
+
+  function renderOptions() {
+    S.view = 'options';
+    const p = S.plan;
+    renderRoute(p.chips);
+    if (!p.options.length) {
+      view.innerHTML = `${chipsRow(p.chips)}<div class="card"><h2>Ничего не нашлось</h2><p class="muted">${esc(p.message)}</p></div>`;
+      return;
+    }
+    const n = p.options.length;
+    const title = p.stage === 'OVER_BUDGET' ? 'Ближайшие варианты к вашему бюджету'
+      : `${n} ${plural(n, 'вариант', 'варианта', 'вариантов')} поездки${p.context.budget ? ' в вашем бюджете' : ''}`;
+    view.innerHTML = `${chipsRow(p.chips)}
+      <h1>${title}</h1>
+      <p class="lead">Сравнил ${p.compared} ${plural(p.compared, 'отель', 'отеля', 'отелей')}. В цене — ${p.context.origin ? 'проживание, дорога туда-обратно и трансферы' : 'проживание'}${p.context.reserve > 0 ? `, а ${rub(p.context.reserve)} оставлены на личные расходы` : ''}.</p>
+      ${p.notice ? `<div class="alert">${esc(p.notice)}</div>` : ''}
+      ${p.assumptions && p.assumptions.length ? `<p class="muted small">≈ ${p.assumptions.map(esc).join(' · ')}</p>` : ''}
+      <div class="opts">${p.options.map(optionCard).join('')}</div>
+      ${n > 1 ? `<details class="acc more"><summary>Сравнить варианты</summary><div class="acc-body">${compareTable(p.options)}</div></details>` : ''}`;
+    view.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => pick(+b.dataset.pick)));
+    view.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => pick(+b.dataset.open)));
+  }
+
+  function compareTable(opts) {
+    const rows = [
+      ['Вся поездка', o => o.trip.total, 'min', rub],
+      ['Проживание', o => o.trip.stay.total, 'min', rub],
+      ['Дорога туда-обратно', o => o.trip.route ? o.trip.route.roundTrip : null, 'min', (v, o) => v == null ? '—' : rub(v) + ' · ' + o.trip.route.title.toLowerCase()],
+      ['Оба трансфера', o => o.trip.route ? o.trip.route.transfers : null, 'min', v => v == null ? '—' : v ? rub(v) : 'не нужны'],
+      ['От двери до отеля', o => o.trip.route ? o.trip.route.outMinutes : null, 'min', v => v == null ? '—' : dur(v)],
+      ['Совпадение', o => o.hotel.matchPercent, 'max', v => v + '%'],
+      ['До моря', o => { const f = fact(o.hotel, 'SEA_DISTANCE'); return f && f.number != null ? f.number : null; }, 'min', (v, o) => { const f = fact(o.hotel, 'SEA_DISTANCE'); return f ? esc(f.value) : '—'; }],
+      ['Лестницы к морю', o => { const f = fact(o.hotel, 'STAIRS_TO_SEA'); return f ? ({ NONE: 0, SOME: 1, MANY: 2 }[f.level] ?? null) : null; }, 'min', (v, o) => { const f = fact(o.hotel, 'STAIRS_TO_SEA'); return f ? esc(f.value) : '—'; }],
+      ['Шум дорог', o => { const f = fact(o.hotel, 'ROAD_NOISE'); return f ? ({ LOW: 0, MEDIUM: 1, HIGH: 2 }[f.level] ?? null) : null; }, 'min', (v, o) => { const f = fact(o.hotel, 'ROAD_NOISE'); return f ? esc(f.value) : '—'; }],
+      ['Остаётся из бюджета', o => o.trip.budgetLeft, 'max', v => v == null ? '—' : rub(v)]
+    ];
+    const head = `<tr><th></th>${opts.map(o => `<th>${esc(o.hotel.name)}</th>`).join('')}</tr>`;
+    const body = rows.map(([label, get, better, fmt]) => {
+      const vals = opts.map(get);
+      const nums = vals.filter(v => v != null);
+      const target = nums.length > 1 && new Set(nums).size > 1 ? (better === 'min' ? Math.min(...nums) : Math.max(...nums)) : null;
+      if (!nums.length) return '';
+      return `<tr><th>${label}</th>${vals.map((v, i) => `<td class="${v != null && v === target ? 'best' : ''}">${fmt(v, opts[i])}</td>`).join('')}</tr>`;
+    }).join('');
+    return `<div style="overflow-x:auto"><table class="cmp">${head}${body}</table></div><p class="muted small">Лучшее значение в строке подсвечено. Факты про море и шум — «Проверено по карте».</p>`;
+  }
+
+  function cheaper() {
+    if (!S.plan || !S.plan.options.length) return;
+    const sorted = S.plan.options.slice().sort((a, b) => a.trip.total - b.trip.total);
+    S.plan.options = sorted;
+    const c = sorted[0];
+    say('bot', `Самый недорогой вариант — <b>${esc(c.hotel.name)}</b>: ${approx(c.trip.total)} за всю поездку${c.trip.route ? ' (' + esc(c.trip.route.title.toLowerCase()) + ')' : ''}. Поставил его первым.`);
+    renderOptions();
+  }
+
+  function why() {
+    if (!S.plan || !S.plan.options.length) return;
+    const lines = S.plan.options.map(o => {
+      const r = (o.hotel.reasons || []).filter(x => x.kind === 'MATCH').slice(0, 2).map(x => esc(x.text.toLowerCase()));
+      const f = topFacts(o.hotel, 1).map(x => esc(x.title.toLowerCase() + ': ' + x.value));
+      return `<b>${esc(o.hotel.name)}</b> — совпадение ${o.hotel.matchPercent}%: ${r.concat(f).join('; ') || 'подходит по основным условиям'}; ${o.trip.fits === false ? 'чуть выше бюджета' : 'вся поездка ' + approx(o.trip.total)}.`;
+    });
+    say('bot', 'Сначала отбираю отели, которые подходят по вашим условиям, потом для каждого считаю поездку целиком и оставляю те, что помещаются в бюджет.<br><br>' + lines.join('<br>'));
+  }
+
+  // =================================================================== отель и поездка
+  function pick(i) {
+    const o = S.plan.options[i];
+    S.chosen = { trip: o.trip, hotel: o.hotel, rank: i + 1 };
+    track('CHOOSE', { rank: i + 1, results: S.plan.options.length });
+    say('bot', `Открыл <b>${esc(o.hotel.name)}</b>. Справа — вся поездка и её состав. Можно сменить транспорт, даты и гостей — пересчитаю и покажу разницу.`);
+    quick(['Другой транспорт', 'Даты и гости', 'Другой отель']);
+    renderHotel();
+  }
+
+  function otherHotel() {
+    if (!S.plan) return;
+    if (S.chosen) S.exclude = Array.from(new Set(S.exclude.concat([S.chosen.trip.hotelId])));
+    S.chosen = null;
+    say('bot', 'Вернулся к подборке.');
+    quick(['Подешевле', 'Почему эти?', 'Другие даты']);
+    renderOptions();
+  }
+
+  function sidePanel(t, h, cta) {
+    const costs = t.costs.map(c => `<li><span>${esc(c.title)}</span><span>${rub(c.amount)}</span></li>`).join('');
+    const reserve = t.reserve > 0 ? `<li class="aside"><span>Отдельный резерв на личные расходы</span><span>${rub(t.reserve)}</span></li>` : '';
+    const left = t.budgetLeft != null ? `<li class="aside"><span>${t.budgetLeft >= 0 ? 'Остаётся из бюджета' : 'Сверх бюджета'}</span><span>${rub(Math.abs(t.budgetLeft))}</span></li>` : '';
+    return `<div class="panel">
+      ${cta === 'checkout' ? `<div class="thumb">${tiles(h.location.lat, h.location.lon, 15)}</div><h3 style="margin:0 0 2px">${esc(h.name)}</h3><div class="addr">${esc([h.district, h.city].filter(Boolean).join(', '))}</div>` : '<h2>Ваша поездка</h2>'}
+      <div class="muted small">${day(t.checkIn)} — ${day(t.checkOut)} · ${t.nights} ${plural(t.nights, 'ночь', 'ночи', 'ночей')}</div>
+      <div class="muted small">${esc(guestsText(t.adults, t.childrenAges))}${t.childrenAges.length ? ' · возраст детей: ' + t.childrenAges.join(', ') : ''}</div>
+      <div class="total">${approx(t.total)}</div>
+      <div class="muted small">за всю поездку${t.route ? ' · ' + esc(t.route.title) + ' · ' + esc(t.origin) + ' → ' + esc(t.hotelCity) : ''}</div>
+      ${t.fits == null ? '' : t.fits ? `<span class="fit ok">В бюджете ${rub(t.spendable)}</span>` : `<span class="fit no">Дороже бюджета на ${rub(-t.budgetLeft)}</span>`}
+      ${cta === 'hotel' ? `<button class="btn wide" type="button" id="go-checkout">Перейти к оформлению</button>` : ''}
+      ${t.route ? `<div class="route"><b>${esc(t.origin)} → ${esc(t.hotelCity)}</b><span class="muted">${esc(t.summary)}</span><div class="big">${esc(t.travelNote || '')}</div></div>` : `<div class="route"><b>Только отель</b><span class="muted">Дорогу планируете сами</span></div>`}
+      <details class="acc" style="margin-top:12px"><summary>Состав стоимости</summary><div class="acc-body"><ul class="costs">${costs}<li class="sum"><span>Итого</span><span>${rub(t.total)}</span></li>${reserve}${left}</ul></div></details>
+      <details class="acc"><summary class="small">О стоимости и бронировании</summary><div class="acc-body small muted">Проживание считается по тарифу отеля на ваши даты (в демо — демо-тарифы). Дорога и трансферы — предварительный расчёт по расстоянию: точные билеты и машина подбираются при оформлении. Сохранение плана ничего не бронирует и не списывает.</div></details>
+    </div>`;
+  }
+
+  function factsBlock(h) {
+    const facts = ((h.verified && h.verified.facts) || []).slice().sort((a, b) => rank(a.code) - rank(b.code));
+    if (!facts.length) return '';
+    return `<details class="acc" open><summary>Проверено по карте <span class="muted">${facts.length} ${plural(facts.length, 'факт', 'факта', 'фактов')} · OpenStreetMap и NASA SRTM</span></summary><div class="acc-body facts">
+      ${facts.map(f => `<div class="fact"><div><b>${esc(f.title)}:</b> ${esc(f.value)}</div><div class="conf" title="Уверенность">${Math.round(f.confidence * 100)}%<i style="--w:${Math.round(f.confidence * 100)}%"></i></div>
+        <div class="how">${esc(f.evidence || '')}${f.method ? ' · <i>' + esc(f.method) + '</i>' : ''}</div></div>`).join('')}
+      <p class="muted small" style="margin:6px 0 0">Посчитано пайплайном по открытым данным, а не угадано моделью.</p></div></details>`;
+  }
+
+  function seasonBlock(h) {
+    const s = h.season;
+    if (!s) return '';
+    const comfort = { COMFORT: 'комфортно', HOT: 'жарко', TOO_HOT: 'изнуряюще жарко', COOL: 'прохладно', COLD: 'холодно' }[s.comfort] || '';
+    const rain = { DRY: 'сухо', SOME: 'бывают дожди', RAINY: 'дождливо', MONSOON: 'сезон дождей' }[s.rain] || '';
+    return `<details class="acc"><summary>Сезон и погода <span class="muted">воздух +${s.airC}${s.waterC != null ? ', вода +' + s.waterC : ''}${comfort ? ' · ' + comfort : ''}</span></summary><div class="acc-body small">
+      <p style="margin:0 0 6px">${MONTHS_NOM[s.month - 1]}: воздух около +${s.airC} °C${s.waterC != null ? ', вода +' + s.waterC + ' °C' : ''}${rain ? ', ' + rain : ''}.</p>
+      ${s.note ? `<p class="muted" style="margin:0 0 6px">${esc(s.note)}</p>` : ''}
+      ${s.hazards && s.hazards.length ? `<ul class="ticks">${s.hazards.map(z => `<li class="part">${esc(z.note)}</li>`).join('')}</ul>` : ''}
+      <p class="muted" style="margin:0">Климат по месяцам — из гида; прогноз на конкретные дни появится ближе к поездке.</p></div></details>`;
+  }
+
+  function routeCard(r, t) {
+    if (!r.available) {
+      return `<div class="rt off"><h4>${esc(r.title)} · недоступно</h4><p>${esc(r.reason)}</p></div>`;
+    }
+    const delta = r.delta == null || r.selected ? '' : r.delta === 0 ? '<span class="delta">столько же</span>'
+      : `<span class="delta ${r.delta > 0 ? 'up' : 'down'}">${r.delta > 0 ? '+' : '−'}${rub(Math.abs(r.delta))} к текущему плану</span>`;
+    const legs = r.selected && t ? t.timeline.filter(l => l.kind !== 'STAY').map(l => `<li><b>${esc(l.title)}</b>${esc(l.from)} → ${esc(l.to)}<div class="when">${dt(l.departure)} — ${dt(l.arrival)}</div>${l.note ? `<div class="note">${esc(l.note)}</div>` : ''}</li>`).join('') : '';
+    return `<div class="rt${r.selected ? ' sel' : ''}">
+      <h4>${esc(r.title)}${r.selected ? ' · выбрано' : ''}</h4>
+      <div class="pr">${approx(Number(r.roundTrip) + Number(r.transfers))} ${r.transfers > 0 ? 'дорога и трансферы' : 'туда-обратно'}</div>
+      <p>${dur(r.outMinutes)} до отеля · ${dur(r.backMinutes)} обратно${r.nightLeg ? ' · есть ночной участок' : ''}</p>
+      <p>${esc(r.pros)}</p>
+      <div class="cav">${esc(r.caveat)}</div>
+      ${legs ? `<details class="acc"><summary>Подробности маршрута</summary><div class="acc-body"><ul class="timeline">${legs}</ul></div></details>` : ''}
+      <div class="row"><b>Вся поездка ${approx(r.tripTotal)}</b>${delta}${!r.selected ? `<button class="btn ghost" type="button" data-mode="${r.mode}">Выбрать ${esc(MODE_NOUN[r.mode])}</button>` : ''}</div>
+    </div>`;
+  }
+
+  function renderHotel() {
+    S.view = 'hotel';
+    const { trip: t, hotel: h } = S.chosen;
+    renderRoute();
+    const policies = h.policies || {};
+    view.innerHTML = `${chipsRow(tripChips(t))}
+      <div class="hotel"><div>
+        <button class="back" type="button" id="back">← К подборке</button>
+        <h1>${esc(h.name)}</h1>
+        <div class="addr">${esc([h.district, h.city, h.region].filter(Boolean).join(', '))}</div>
+        <div class="meta"><span class="score">${h.matchPercent}%</span><span>совпадение с запросом</span>${h.stars ? `<span>${'★'.repeat(h.stars)}</span>` : ''}${h.dataSource === 'OSM' ? '<span>реальный отель из OpenStreetMap</span>' : '<span>демо-карточка</span>'}${h.verified && h.verified.card && h.verified.card.level === 'VERIFIED' ? '<span class="chip hl">Проверенная карточка</span>' : ''}</div>
+        <div class="map" id="map" role="img" aria-label="Отель и точка прибытия на карте"></div>
+        ${facilities(h).length ? `<div class="tags">${facilities(h).map(x => `<span>${esc(x)}</span>`).join('')}</div>` : ''}
+        <ul class="ticks">${(h.reasons || []).slice(0, 8).map(r => `<li class="${{ MATCH: '', PARTIAL: 'part', MISS: 'miss', INFO: 'info' }[r.kind]}">${esc(r.text)}</li>`).join('')}</ul>
+        ${factsBlock(h)}
+        <details class="acc"><summary>Номера и правила</summary><div class="acc-body small">
+          <p style="margin:0 0 6px">Заезд с ${esc(policies.checkInFrom || '14:00')} · выезд до ${esc(policies.checkOutUntil || '12:00')}</p>
+          <p style="margin:0 0 6px"><b>В плане:</b> ${esc(t.stay.roomName)}${t.stay.rooms > 1 ? ' × ' + t.stay.rooms : ''} · ${esc(MEAL[t.stay.mealPlan] || t.stay.mealPlan)} · ${t.stay.refundable ? 'бесплатная отмена' : 'без возврата'} · ${rub(t.stay.perNight)} за ночь</p>
+          <div id="rates" class="muted">Загружаю тарифы…</div></div></details>
+        <details class="acc" id="acc-reviews"><summary>Отзывы <span class="muted">${h.reviewsCount ? h.reviewsCount : 'пока нет'}</span></summary><div class="acc-body small" id="reviews">${h.reviewsCount ? 'Загружаю…' : 'У этого отеля пока нет отзывов — не выдумываем их. Факты о месте — в блоке «Проверено по карте».'}</div></details>
+        ${seasonBlock(h)}
+        <details class="acc" id="acc-routes" ${S.openRoutes ? 'open' : ''}><summary>Дорога и трансферы <span class="muted">${t.route ? esc(t.route.title.toLowerCase()) + ' · ' + approx(Number(t.route.roundTrip) + Number(t.route.transfers)) : 'только отель'}</span></summary><div class="acc-body">
+          ${t.notes.map(n => `<div class="alert">${esc(n)}</div>`).join('')}
+          ${t.route ? `<p class="muted small" style="margin:0 0 10px">Местное время · Москва (UTC+3)</p><div class="routes">${t.routes.map(r => routeCard(r, t)).join('')}</div>`
+            : `<p class="small">Вы выбрали только отель. <button class="btn ghost" type="button" id="add-road">Добавить дорогу</button></p>`}
+        </div></details>
+        <details class="acc"><summary>Что проверить перед поездкой</summary><div class="acc-body"><ul class="checks">${t.checks.map(c => `<li class="${c.status}">${esc(c.text)}</li>`).join('')}</ul></div></details>
+      </div>
+      <aside class="side">${sidePanel(t, h, 'hotel')}</aside></div>`;
+    S.openRoutes = false;
+    $('#back').addEventListener('click', otherHotelBack);
+    $('#go-checkout').addEventListener('click', renderCheckout);
+    view.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => proposeChange({ transport: b.dataset.mode }, 'Посчитал поездку ' + MODE_ON[b.dataset.mode] + '.')));
+    const add = $('#add-road');
+    if (add) add.addEventListener('click', () => { S.pending = 'ORIGIN'; say('bot', 'Из какого города отправляетесь?'); quick(['Москва', 'Санкт-Петербург', 'Краснодар', 'Другой город']); });
+    drawMap(h, t);
+    loadRates(h.hotelId, t);
+    const rev = $('#acc-reviews');
+    if (h.reviewsCount) rev.addEventListener('toggle', () => { if (rev.open) loadReviews(h.hotelId); }, { once: true });
+    $('#work').scrollTop = 0;
+  }
+
+  function otherHotelBack() {
+    S.chosen = null;
+    quick(['Подешевле', 'Почему эти?', 'Другие даты']);
+    renderOptions();
+  }
+
+  function showRoutes() {
+    if (!S.chosen) return;
+    S.openRoutes = true;
+    renderHotel();
+    const acc = $('#acc-routes');
+    if (acc) acc.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  let map = null;
+  function drawMap(h, t) {
+    if (!window.L) { $('#map').innerHTML = tiles(h.location.lat, h.location.lon, 14); return; }
+    if (map) { map.remove(); map = null; }
+    map = L.map('map', { scrollWheelZoom: false }).setView([h.location.lat, h.location.lon], 14);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© участники OpenStreetMap' }).addTo(map);
+    const hotelIcon = L.divIcon({ className: '', html: '<span class="pin" style="position:absolute;left:0;top:0;margin:0;width:22px;height:22px;border-radius:50% 50% 50% 0;background:#1F5FBF;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);display:block"></span>', iconSize: [22, 22], iconAnchor: [11, 22] });
+    L.marker([h.location.lat, h.location.lon], { icon: hotelIcon }).addTo(map).bindPopup(esc(h.name));
+    const HUBS = { 'Симферополь · вокзал': [44.9496, 34.1036], 'Севастополь · вокзал': [44.606, 33.533], 'Сочи · вокзал': [43.5917, 39.728], 'Сочи · аэропорт': [43.4499, 39.9566], 'Анапа · вокзал': [44.889, 37.332] };
+    const hub = t.route && HUBS[t.route.hub];
+    if (hub) {
+      L.circleMarker(hub, { radius: 7, color: '#12223D', fillColor: '#FFE36E', fillOpacity: 1, weight: 2 }).addTo(map).bindPopup(esc(t.route.hub));
+      L.polyline([hub, [h.location.lat, h.location.lon]], { color: '#12223D', weight: 3, dashArray: '6 8' }).addTo(map).bindTooltip('Трансфер');
+      map.fitBounds([hub, [h.location.lat, h.location.lon]], { padding: [30, 30] });
+    }
+  }
+
+  async function loadRates(id, t) {
+    const el = $('#rates');
+    try {
+      const d = await api('/api/v1/hotels/' + id);
+      if (!$('#rates')) return;
+      el.innerHTML = '<b style="color:var(--ink)">Категории в отеле</b>' + d.rates.map(r =>
+        `<div>${esc(r.roomName)} · до ${r.maxAdults} взр.${r.maxChildren ? ' + ' + r.maxChildren + ' дет.' : ''} · ${esc(MEAL[r.mealPlan] || r.mealPlan)} · от ${rub(r.basePricePerNight)} за ночь${r.id === t.stay.rateId ? ' · <b style="color:var(--ok)">в плане</b>' : ''}</div>`).join('');
+    } catch (e) { el.textContent = 'Тарифы не загрузились — попробуйте позже.'; }
+  }
+
+  async function loadReviews(id) {
+    const el = $('#reviews');
+    try {
+      const p = await api('/api/v1/hotels/' + id + '/reviews?limit=5');
+      const s = p.summary;
+      el.innerHTML = `<p style="margin:0 0 8px">Оценка ${s.average} / 10 · всего ${s.count}${p.demo ? ' · демо-отзывы' : ''}</p>
+        ${s.praised.length ? `<p style="margin:0 0 4px"><b>Хвалят:</b> ${s.praised.map(a => esc(a.label)).join(', ')}</p>` : ''}
+        ${s.criticized.length ? `<p style="margin:0 0 8px"><b>Жалуются:</b> ${s.criticized.map(a => esc(a.label)).join(', ')}</p>` : ''}
+        ${p.items.map(r => `<div style="border-top:1px solid var(--line);padding:8px 0"><b>${esc(r.title)}</b> <span class="muted">· ${r.rating} · ${esc(r.author)}</span>${r.pros ? `<div>+ ${esc(r.pros)}</div>` : ''}${r.cons ? `<div class="muted">− ${esc(r.cons)}</div>` : ''}</div>`).join('')}`;
+    } catch (e) { el.textContent = 'Отзывы не загрузились.'; }
+  }
+
+  // =================================================================== изменения: было / стало
+  function quoteBody(t, change) {
+    const c = Object.assign({ origin: t.origin, transport: t.route ? t.route.mode : null, checkIn: t.checkIn, nights: t.nights,
+      adults: t.adults, childrenAges: t.childrenAges }, change || {});
+    return { hotelId: t.hotelId, origin: c.origin, transport: c.transport, checkIn: c.checkIn, nights: c.nights, adults: c.adults,
+      childrenAges: c.childrenAges, budget: t.budget, reserve: t.reserve };
+  }
+
+  async function proposeChange(change, text) {
+    if (!S.chosen || S.busy) return;
+    busy(true, 'Пересчитываю поездку');
+    try {
+      const next = await api('/api/v1/trips/quote', quoteBody(S.chosen.trip, change));
+      S.proposal = next;
+      S.returnTo = S.view === 'checkout' ? 'checkout' : 'hotel';
+      say('bot', esc(text) + ' Пересчитал всю поездку. Сравните изменения и подтвердите новый план — прежний выбор сохранён.');
+      renderDiff();
+    } catch (e) {
+      say('bot', 'Не получилось пересчитать: ' + esc(e.message));
+    } finally { busy(false); }
+  }
+
+  function renderDiff() {
+    S.view = 'diff';
+    const a = S.chosen.trip, b = S.proposal, h = S.chosen.hotel;
+    const cost = (t, code) => { const c = t.costs.find(x => x.code === code); return c ? c.amount : 0; };
+    const road = t => t.route ? cost(t, 'TRAVEL') + cost(t, 'OVERNIGHT') : 0;
+    const rows = [
+      ['Откуда', t => t.origin || 'только отель'],
+      ['Дорога', t => t.route ? t.route.title : '—'],
+      ['Трансфер', t => !t.route ? '—' : t.route.transfers > 0 ? 'трансфер до отеля · ' + t.route.cars + ' авто' : 'не нужен'],
+      ['Отель', t => h.name],
+      ['Даты', t => day(t.checkIn) + ' — ' + day(t.checkOut) + ' · ' + t.nights + ' ноч.'],
+      ['Гости', t => guestsText(t.adults, t.childrenAges) + (t.childrenAges.length ? ' (' + t.childrenAges.join(', ') + ' лет)' : '')],
+      ['Номера', t => t.stay.roomName + (t.stay.rooms > 1 ? ' × ' + t.stay.rooms : '')],
+      ['Бюджет на поездку', t => t.budget == null ? '—' : rub(t.budget)],
+      ['На личные расходы', t => rub(t.reserve)],
+      ['Проживание', t => rub(t.stay.total)],
+      ['Дорога туда-обратно', t => t.route ? rub(road(t)) : '—'],
+      ['Оба трансфера', t => t.route ? rub(t.route.transfers) : '—'],
+      ['Итого', t => rub(t.total)]
+    ];
+    const diff = b.total - a.total;
+    view.innerHTML = `${chipsRow(tripChips(a))}
+      <div class="card"><h2>Обновим поездку?</h2><p class="muted" style="margin:0 0 14px">Прежний план сохранён. Изменение вступит в силу после вашего подтверждения.</p>
+      <div style="overflow-x:auto"><table class="cmp"><tr><th></th><th>Было</th><th>Стало</th></tr>
+      ${rows.map(([label, f]) => { const x = f(a), y = f(b); return `<tr class="${x !== y ? 'changed' : ''}"><td>${label}</td><td>${esc(x)}</td><td>${esc(y)}</td></tr>`; }).join('')}</table></div>
+      <p style="font-weight:700;margin:14px 0 4px">${diff === 0 ? 'Цена не изменилась' : (diff > 0 ? '+' : '−') + rub(Math.abs(diff)) + ' к прежней поездке'}</p>
+      ${b.fits === false ? `<div class="alert err">Новый план дороже бюджета на ${rub(-b.budgetLeft)}.</div>` : b.fits ? `<div class="alert ok">Новый план укладывается в бюджет, остаётся ${rub(b.budgetLeft)}.</div>` : ''}
+      <details class="acc"><summary>Уточним условия поездки</summary><div class="acc-body"><ul class="checks">${b.checks.map(c => `<li class="${c.status}">${esc(c.text)}</li>`).join('')}</ul></div></details>
+      ${b.route ? `<details class="acc"><summary>Дорога и трансферы</summary><div class="acc-body"><ul class="timeline">${timelineItems(b)}</ul></div></details>` : ''}
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><button class="btn" type="button" id="accept">Принять изменения</button><button class="btn ghost" type="button" id="keep">Оставить прежний план</button></div></div>`;
+    $('#accept').addEventListener('click', () => {
+      S.chosen.trip = S.proposal; S.proposal = null;
+      say('bot', 'План обновлён. Проверьте состав перед оформлением.');
+      S.returnTo === 'checkout' ? renderCheckout() : renderHotel();
+    });
+    $('#keep').addEventListener('click', () => {
+      S.proposal = null;
+      say('bot', 'Оставил прежний план.');
+      S.returnTo === 'checkout' ? renderCheckout() : renderHotel();
+    });
+    $('#work').scrollTop = 0;
+  }
+
+  function timelineItems(t) {
+    return t.timeline.map(l => l.kind === 'STAY'
+      ? `<li class="stay"><b>Проживание · ${esc(l.to)}</b><div>Заселение с ${dt(l.departure)}</div><div>Выезд до ${dt(l.arrival)}</div>${l.note ? `<div class="note">${esc(l.note)}</div>` : ''}</li>`
+      : `<li><b>${esc(l.title)}</b>${esc(l.from)} → ${esc(l.to)}<div class="when">${dt(l.departure)} — ${dt(l.arrival)}</div>${l.note ? `<div class="note">${esc(l.note)}</div>` : ''}</li>`).join('');
+  }
+
+  // ------------------------------------------------------------------- даты и гости
+  const gDlg = $('#dlg-guests');
+  function openGuests() {
+    const base = S.chosen ? S.chosen.trip : S.plan && S.plan.context;
+    if (!base) { say('bot', 'Сначала расскажите о поездке — тогда смогу поменять даты и гостей.'); return; }
+    const inD = parseD(base.checkIn), outD = new Date(inD); outD.setDate(outD.getDate() + base.nights);
+    $('#g-in').value = iso(inD); $('#g-out').value = iso(outD);
+    $('#g-ad').value = base.adults; $('#g-ch').value = base.childrenAges.length;
+    $('#g-in').min = iso(new Date());
+    drawAges(base.childrenAges);
+    $('#g-err').hidden = true;
+    updNights();
+    gDlg.showModal();
+  }
+  function drawAges(ages) {
+    const n = Math.max(0, Math.min(6, +$('#g-ch').value || 0));
+    const cur = ages || Array.from($('#g-ages').querySelectorAll('select')).map(s => +s.value);
+    let html = '';
+    for (let i = 0; i < n; i++) {
+      const v = cur[i] != null ? cur[i] : 7;
+      html += `<div class="form-row"><label for="g-age-${i}">Возраст ребёнка ${i + 1}</label><select id="g-age-${i}">${Array.from({ length: 18 }, (_, a) => `<option value="${a}"${a === v ? ' selected' : ''}>${a} ${plural(a, 'год', 'года', 'лет')}${a === 0 ? ' (до года)' : ''}</option>`).join('')}</select></div>`;
+    }
+    $('#g-ages').innerHTML = html;
+  }
+  function updNights() {
+    const a = parseD($('#g-in').value), b = parseD($('#g-out').value);
+    const n = Math.round((b - a) / 86400000);
+    $('#g-nights').textContent = n > 0 ? n + ' ' + plural(n, 'ночь', 'ночи', 'ночей') : 'Выезд должен быть позже заезда';
+    return n;
+  }
+  $('#g-ch').addEventListener('input', () => drawAges());
+  $('#g-in').addEventListener('change', updNights);
+  $('#g-out').addEventListener('change', updNights);
+  $('#guests-form').addEventListener('submit', async e => {
+    if (e.submitter && e.submitter.value === 'cancel') return;
+    e.preventDefault();
+    const nights = updNights();
+    const err = $('#g-err');
+    if (!(nights >= 1 && nights <= 30)) { err.textContent = 'Поездка — от 1 до 30 ночей.'; err.hidden = false; return; }
+    const change = { checkIn: $('#g-in').value, nights, adults: Math.max(1, Math.min(10, +$('#g-ad').value || 1)),
+      childrenAges: Array.from($('#g-ages').querySelectorAll('select')).map(s => +s.value) };
+    gDlg.close();
+    say('me', `${day(change.checkIn)} — ${day($('#g-out').value)}, ${guestsText(change.adults, change.childrenAges)}`);
+    if (S.chosen) return proposeChange(change, 'Поменял даты и гостей.');
+    return requoteAll(change);
+  });
+
+  async function requoteAll(change) {
+    if (!S.plan || !S.plan.options.length) return;
+    busy(true, 'Пересчитываю варианты');
+    try {
+      const fresh = await Promise.all(S.plan.options.map(o => api('/api/v1/trips/quote', quoteBody(o.trip, change)).then(t => ({ trip: t, hotel: o.hotel }))));
+      S.plan.options = fresh;
+      Object.assign(S.plan.context, change);
+      const c = S.plan.context, out = new Date(parseD(c.checkIn)); out.setDate(out.getDate() + c.nights);
+      S.plan.chips = S.plan.chips.filter(x => !/^\d|взр|ноч|ребён|дет/.test(x))
+        .concat([day(c.checkIn) + ' — ' + day(iso(out)), guestsText(c.adults, c.childrenAges)]);
+      say('bot', 'Пересчитал все варианты на новые даты и гостей: ' + fresh.map(o => esc(o.hotel.name) + ' — ' + approx(o.trip.total)).join('; ') + '.');
+      renderOptions();
+    } catch (e) {
+      say('bot', 'Не получилось пересчитать: ' + esc(e.message));
+    } finally { busy(false); }
+  }
+
+  // =================================================================== оформление
+  function renderCheckout() {
+    S.view = 'checkout';
+    const { trip: t, hotel: h } = S.chosen;
+    renderRoute();
+    say('bot', 'План почти готов. Проверьте расписание и условия, укажите, кто поедет, — и сохраню поездку.');
+    quick(['Даты и гости', 'Другой транспорт', 'Другой отель']);
+    const canHold = t.stay.rooms === 1 && t.childrenAges.length <= 6;
+    view.innerHTML = `${chipsRow(tripChips(t))}
+      <div class="two"><div>
+        <button class="back" type="button" id="back">← К отелю</button>
+        <h1>Ваша поездка</h1>
+        <p class="lead">${esc(t.summary)}${t.travelNote ? ' · ' + esc(t.travelNote) : ''}</p>
+        ${t.notes.map(n => `<div class="alert">${esc(n)}</div>`).join('')}
+        <div class="card"><h3>Расписание · время московское</h3><ul class="timeline">${timelineItems(t)}</ul>
+          <p class="muted small" style="margin:0">Время и стоимость трансфера предварительные. Время подачи, багаж и детские кресла уточните при заказе.</p></div>
+        <details class="acc" open><summary>Уточним условия поездки</summary><div class="acc-body"><ul class="checks">${t.checks.map(c => `<li class="${c.status}">${esc(c.text)}</li>`).join('')}</ul></div></details>
+        <form id="who" class="section card" novalidate>
+          <h2>Кто поедет?</h2>
+          <div class="form-row"><label for="w-name">Имя и фамилия гостя</label><input id="w-name" autocomplete="name" maxlength="200" required placeholder="Иван Иванов"></div>
+          <div class="form-row"><label for="w-mail">Почта — пришлём план (необязательно)</label><input id="w-mail" type="email" autocomplete="email" maxlength="200" placeholder="ivan@example.ru"></div>
+          <h3 style="margin-top:16px">Что входит в стоимость</h3>
+          <ul class="ticks">
+            <li>${t.stay.rooms} ${plural(t.stay.rooms, 'номер', 'номера', 'номеров')} · ${esc(guestsText(t.adults, t.childrenAges))}</li>
+            <li>Проживание: ${esc(t.stay.roomName)}, ${esc(MEAL[t.stay.mealPlan] || t.stay.mealPlan)}</li>
+            ${t.route ? `<li>${t.route.transfers > 0 ? 'Дорога и оба трансфера учтены в стоимости' : 'Бензин и платные дороги учтены в стоимости'}</li>` : ''}
+            <li class="info">Перед бронированием уточните номер, питание, правила отмены и возможные доплаты</li>
+          </ul>
+          <label class="check"><input type="checkbox" id="w-demo" required> <span>Понимаю, что это демонстрационный режим: без оплаты и реального бронирования дороги.</span></label>
+          ${canHold ? `<label class="check"><input type="checkbox" id="w-hold"> <span>Удержать номер в отеле на 15 минут — демо-бронь через «Забронировать» (нужна почта).</span></label>` : ''}
+          <p class="alert err" id="w-err" hidden></p>
+          <button class="btn wide" type="submit" id="w-save">Сохранить план</button>
+        </form>
+      </div>
+      <aside class="side">${sidePanel(t, h, 'checkout')}</aside></div>`;
+    $('#back').addEventListener('click', renderHotel);
+    $('#who').addEventListener('submit', save);
+    $('#work').scrollTop = 0;
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    const err = $('#w-err');
+    const name = $('#w-name').value.trim(), mail = $('#w-mail').value.trim();
+    const hold = $('#w-hold') && $('#w-hold').checked;
+    err.hidden = true;
+    if (name.length < 2) { err.textContent = 'Укажите имя и фамилию гостя.'; err.hidden = false; $('#w-name').focus(); return; }
+    if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { err.textContent = 'Проверьте почту.'; err.hidden = false; $('#w-mail').focus(); return; }
+    if (hold && !mail) { err.textContent = 'Для демо-брони номера нужна почта.'; err.hidden = false; $('#w-mail').focus(); return; }
+    if (!$('#w-demo').checked) { err.textContent = 'Подтвердите, что понимаете: это демонстрационный режим.'; err.hidden = false; return; }
+    const { trip: t, hotel: h } = S.chosen;
+    let booking = null;
+    if (hold) {
+      const btn = $('#w-save'); btn.disabled = true; btn.textContent = 'Удерживаем номер…';
+      try {
+        booking = await api('/api/v1/bookings', { rateId: t.stay.rateId, checkIn: t.checkIn, nights: t.nights, adults: t.adults,
+          childrenAges: t.childrenAges, guestName: name, guestEmail: mail, mealUpgrade: null }, { 'Idempotency-Key': newKey() });
+      } catch (ex) {
+        err.textContent = 'Номер удержать не получилось: ' + ex.message + '. План можно сохранить без брони.'; err.hidden = false;
+        btn.disabled = false; btn.textContent = 'Сохранить план';
+        $('#w-hold').checked = false;
+        return;
+      }
+    }
+    const id = 'OP-' + newKey().replace(/-/g, '').slice(0, 8).toUpperCase();
+    const entry = { id, savedAt: new Date().toISOString(), guest: name, trip: t, hotel: slimHotel(h), booking: booking && { reference: booking.reference, holdExpiresAt: booking.holdExpiresAt, status: booking.status } };
+    const hist = store.get('oplan-history', []);
+    hist.unshift(entry);
+    store.set('oplan-history', hist.slice(0, 20));
+    S.saved = entry;
+    track('BOOKED', { rank: S.chosen.rank });
+    say('bot', 'Готово! Поездка сохранена. В плане — отель, даты и детали дороги.' + (booking ? ` Номер удержан до ${new Date(booking.holdExpiresAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} (бронь ${esc(booking.reference)}).` : ''));
+    renderDone(entry);
+  }
+
+  function slimHotel(h) {
+    return { hotelId: h.hotelId, name: h.name, city: h.city, district: h.district, region: h.region, stars: h.stars, location: h.location,
+      matchPercent: h.matchPercent, dataSource: h.dataSource,
+      reasons: (h.reasons || []).filter(r => r.kind === 'MATCH').slice(0, 4),
+      facts: topFacts(h, 6).map(f => ({ title: f.title, value: f.value })),
+      facilities: facilities(h) };
+  }
+
+  function renderDone(entry) {
+    S.view = 'done';
+    const t = entry.trip, h = entry.hotel;
+    lockComposer('Начните новую поездку, чтобы продолжить');
+    view.innerHTML = `<div class="two"><div>
+      <div class="card done-card"><div class="big" aria-hidden="true">🧳</div><h1>Поездка сохранена</h1>
+        <p class="muted">План ${esc(entry.id)} · ${esc(entry.guest)}</p>
+        ${entry.booking ? `<div class="alert ok">Номер удержан на 15 минут: бронь ${esc(entry.booking.reference)}. Оплатить тестовой картой можно на главной в «Мои брони».</div>` : ''}
+        <button class="btn wide" type="button" id="pdf">Скачать план поездки · PDF</button>
+        <button class="btn line wide" type="button" id="again">Спланировать ещё одну поездку</button>
+      </div>
+      <div class="card section"><h3>Расписание</h3><ul class="timeline">${timelineItems(t)}</ul></div>
+      <details class="acc"><summary>После выбора поездки</summary><div class="acc-body small"><ul class="ticks">
+        <li>Купите билеты на ${t.route ? esc(MODE_NOUN[t.route.mode]) : 'дорогу'} — в плане указано расчётное время, сверьте его с расписанием.</li>
+        <li>Забронируйте номер${t.stay.rooms > 1 ? 'а' : ''} и закажите трансфер на время прибытия.</li>
+        <li class="info">Пункты со знаком «?» в «Уточним условия поездки» стоит проверить заранее.</li></ul></div></details>
+      <details class="acc"><summary>Выбрать вместе</summary><div class="acc-body small">Скачайте PDF и отправьте попутчикам — в нём вся поездка на двух страницах: отель, цена, расписание и что проверить.</div></details>
+    </div><aside class="side">${sidePanel(t, Object.assign({ location: h.location, district: h.district, city: h.city, name: h.name }), 'checkout')}</aside></div>`;
+    $('#pdf').addEventListener('click', () => printPlan(entry));
+    $('#again').addEventListener('click', reset);
+    $('#work').scrollTop = 0;
+  }
+
+  // ------------------------------------------------------------------- PDF через печать
+  function printPlan(entry) {
+    const t = entry.trip, h = entry.hotel;
+    const costs = t.costs.map(c => `<tr><td>${esc(c.title)}</td><td class="r">${rub(c.amount)}</td></tr>`).join('')
+      + (t.reserve > 0 ? `<tr class="m"><td>Отдельный резерв на личные расходы</td><td class="r">${rub(t.reserve)}</td></tr>` : '');
+    const legs = t.timeline.map(l => l.kind === 'STAY'
+      ? `<li><b>Проживание</b> · ${esc(l.to)}: заселение ${dt(l.departure)}, выезд до ${dt(l.arrival)}</li>`
+      : `<li><b>${esc(l.title)}</b>: ${esc(l.from)} → ${esc(l.to)}, ${dt(l.departure)} — ${dt(l.arrival)}${l.note ? `<div class="m">${esc(l.note)}</div>` : ''}</li>`).join('');
+    const html = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>OPlan-${esc(entry.id)}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;600;700&family=Unbounded:wght@700&display=swap" rel="stylesheet">
+      <style>@page{size:A4;margin:14mm} body{font:11pt/1.45 Onest,Arial,sans-serif;color:#12223D;margin:0}
+      .top{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #12223D;padding-bottom:6px;margin-bottom:12px}
+      .brand{font:700 16pt Unbounded,Arial} .brand b{color:#1F5FBF} .k{font-size:8pt;letter-spacing:.08em;text-transform:uppercase;color:#5B6B84}
+      .hero{background:#FFF4DC;border-radius:10px;padding:14px 16px;display:flex;justify-content:space-between;gap:12px}
+      .hero h1{font:700 22pt/1.1 Unbounded,Arial;margin:4px 0 0} .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:#F3F6FB;border-radius:10px;padding:10px 14px;margin:10px 0}
+      .grid b{display:block} h2{font-size:15pt;margin:14px 0 2px} .m{color:#5B6B84;font-size:9.5pt}
+      .total{background:#12223D;color:#fff;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin:10px 0}
+      .total .v{font:700 22pt Onest,Arial,sans-serif} .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px} h3{font-size:10pt;text-transform:uppercase;letter-spacing:.06em;color:#5B6B84;margin:12px 0 4px}
+      table{width:100%;border-collapse:collapse} td{padding:3px 0;border-bottom:1px solid #D9E1EC} td.r{text-align:right;white-space:nowrap} tr.s td{font-weight:700;border-bottom:0}
+      ul{margin:0;padding-left:16px} li{margin:2px 0} .foot{margin-top:16px;border-top:1px solid #D9E1EC;padding-top:6px;display:flex;justify-content:space-between}
+      .ask{color:#7a5200}</style></head><body>
+      <div class="top"><span class="brand">О!<b>дин шаг</b></span><span class="k">О!План / план поездки</span></div>
+      <div class="hero"><div><div class="k">Хорошее путешествие начинается здесь</div><h1>${esc(t.hotelCity)}</h1><div class="m">${esc(t.summary)}</div></div>
+        <div class="k" style="text-align:right">План ${esc(entry.id)}<br>${esc(entry.guest)}</div></div>
+      <div class="grid"><div><span class="k">Заезд</span><b>${dayFull(t.checkIn)}</b></div><div><span class="k">Выезд</span><b>${dayFull(t.checkOut)}</b></div><div><span class="k">Вы едете</span><b>${esc(guestsText(t.adults, t.childrenAges))}</b></div></div>
+      ${t.childrenAges.length ? `<div class="m">Возраст детей: ${t.childrenAges.join(', ')}</div>` : ''}
+      <h2>${esc(h.name)}</h2><div class="m">${esc([h.district, h.city, h.region].filter(Boolean).join(', '))}${h.stars ? ' · ' + h.stars + ' звезды' : ''} · совпадение с запросом ${h.matchPercent}%</div>
+      <div class="total"><div><div class="k" style="color:#cfd8e6">Стоимость всей поездки</div><div class="v">≈ ${rub(t.total)}</div></div>
+        <div style="text-align:right">${t.nights} ${plural(t.nights, 'ночь', 'ночи', 'ночей')} · ${t.stay.rooms} ${plural(t.stay.rooms, 'номер', 'номера', 'номеров')}<br><span style="color:#cfd8e6">${rub(t.stay.perNight)} / ночь</span>${t.fits != null ? `<br>${t.fits ? 'в бюджете ' + rub(t.spendable) : 'сверх бюджета на ' + rub(-t.budgetLeft)}` : ''}</div></div>
+      <div class="cols"><div><h3>Ваш тариф</h3><div>${esc(t.stay.roomName)}${t.stay.rooms > 1 ? ' × ' + t.stay.rooms : ''}</div><div>${esc(MEAL[t.stay.mealPlan] || t.stay.mealPlan)} · ${t.stay.refundable ? 'бесплатная отмена' : 'без возврата'}</div><div>Основной гость: ${esc(entry.guest)}</div>
+        ${h.facilities && h.facilities.length ? `<div class="m">Удобства: ${h.facilities.map(esc).join(' · ')}</div>` : ''}</div>
+        <div><h3>Почему этот отель</h3><ul>${h.reasons.map(r => `<li>${esc(r.text)}</li>`).join('')}${h.facts.map(f => `<li>${esc(f.title)}: ${esc(f.value)} <span class="m">· по карте</span></li>`).join('')}</ul></div></div>
+      <h3>Состав стоимости</h3><table>${costs}<tr class="s"><td>Итого</td><td class="r">${rub(t.total)}</td></tr></table>
+      <h3>Дорога и трансферы · время московское</h3><ul>${legs}</ul>
+      ${t.notes.length ? `<p class="m">${t.notes.map(esc).join(' ')}</p>` : ''}
+      <h3>Что проверить перед поездкой</h3><ul>${t.checks.map(c => `<li class="${c.status === 'OK' ? '' : 'ask'}">${c.status === 'OK' ? '✓' : c.status === 'FAIL' ? '!' : '?'} ${esc(c.text)}</li>`).join('')}</ul>
+      ${entry.booking ? `<p><b>Демо-бронь номера:</b> ${esc(entry.booking.reference)}</p>` : ''}
+      <div class="foot m"><span>План ${esc(entry.id)} · сохранён ${new Date(entry.savedAt).toLocaleString('ru-RU')}</span><span>Цены предварительные · демо-расчёт дороги · © OpenStreetMap</span></div>
+      </body></html>`;
+    const frame = $('#print-frame');
+    const doc = frame.contentDocument;
+    doc.open(); doc.write(html); doc.close();
+    const go = () => { try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch (e) { say('bot', 'Не получилось открыть печать — попробуйте другой браузер.'); } };
+    // ждём шрифты, чтобы PDF был красивым, но не дольше секунды
+    const ready = doc.fonts && doc.fonts.ready ? Promise.race([doc.fonts.ready, sleep(1000)]) : sleep(400);
+    ready.then(() => setTimeout(go, 150));
+    say('bot', 'Открыл печать плана. Выберите «Сохранить как PDF» — файл назовётся OPlan-' + esc(entry.id) + '.');
+  }
+
+  // =================================================================== история, новый поиск, справка
+  const hDlg = $('#dlg-history');
+  $('#nav-history').addEventListener('click', () => {
+    const hist = store.get('oplan-history', []);
+    $('#hist').innerHTML = hist.length ? hist.map((e, i) => `<button type="button" data-h="${i}"><b>${esc(e.hotel.name)}</b>
+      ${esc(e.trip.hotelCity)} · ${day(e.trip.checkIn)} — ${day(e.trip.checkOut)} · ${esc(guestsText(e.trip.adults, e.trip.childrenAges))}${e.trip.childrenAges.length ? ' · возраст детей: ' + e.trip.childrenAges.join(', ') : ''}<br>
+      ${e.trip.route ? esc(e.trip.route.title) + (e.trip.route.transfers > 0 ? ' · трансфер до отеля' : '') : 'Только отель'}<br>
+      Итого ${approx(e.trip.total)}<br><span class="muted">${new Date(e.savedAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · ${e.booking ? 'номер удержан' : 'план сохранён'}</span></button>`).join('')
+      : '<p class="muted">Здесь появятся сохранённые поездки. Они хранятся только в этом браузере.</p>';
+    $('#hist').querySelectorAll('[data-h]').forEach(b => b.addEventListener('click', () => { hDlg.close(); openSaved(hist[+b.dataset.h]); }));
+    hDlg.showModal();
+  });
+  function openSaved(entry) {
+    S = blank();
+    S.saved = entry;
+    log.innerHTML = '';
+    say('bot', `Открыл сохранённую поездку ${esc(entry.id)}: ${esc(entry.hotel.name)}, ${day(entry.trip.checkIn)} — ${day(entry.trip.checkOut)}.`);
+    S.chosen = { trip: entry.trip, hotel: entry.hotel };
+    renderRoute();
+    renderDone(entry);
+  }
+
+  document.querySelectorAll('dialog [data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
+  $('#nav-how').addEventListener('click', () => $('#dlg-how').showModal());
+  $('#nav-new').addEventListener('click', reset);
+
+  function reset() {
+    S = blank();
+    log.innerHTML = '';
+    unlockComposer();
+    greet();
+    renderIntro();
+    msg.focus();
+  }
+
+  function greet() {
+    say('bot', 'Расскажите о поездке: куда, когда, кто едет и общий бюджет. Соберу отель, дорогу и трансферы — или подберу только отель.');
+    quick(['К морю в Ялту', 'Алушта с ребёнком', 'Только отель']);
+  }
+
+  // старт: ?q= из главной сразу запускает разговор
+  greet();
+  renderIntro();
+  const q = new URLSearchParams(location.search).get('q');
+  if (q) send(q.slice(0, 1000));
+})();
+</script>
+</body>
+</html>
